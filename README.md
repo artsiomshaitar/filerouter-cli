@@ -1,5 +1,8 @@
 # filerouter-cli
 
+> **⚠️ Work in Progress**  
+> This project is under active development. APIs may change without notice. Not recommended for production use yet.
+
 A file-based routing framework for building CLI applications with TypeScript. Inspired by [TanStack Router](https://tanstack.com/router) conventions.
 
 ## Features
