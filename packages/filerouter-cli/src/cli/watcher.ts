@@ -15,10 +15,6 @@ export interface WatcherOptions {
   onError: (error: Error) => void;
 }
 
-export interface WatcherState {
-  commandCount: number;
-}
-
 /**
  * Start watching the commands directory for changes
  * Returns a cleanup function to stop watching

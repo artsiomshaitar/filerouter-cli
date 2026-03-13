@@ -46,7 +46,7 @@ export function generateCommandsTree(
   lines.push("");
 
   // Generate parseRoute function
-  lines.push(generateParseRoute(commands, config));
+  lines.push(generateParseRoute(commands));
 
   // Generate commandInfo function
   lines.push(generateCommandInfo(commands, config));
@@ -83,8 +83,7 @@ function getImportPath(filePath: string, config: GeneratorConfig): string {
  * 2. Second pass: Re-parse with schema knowledge for accurate flag parsing
  */
 function generateParseRoute(
-  commands: ScannedCommand[],
-  config: GeneratorConfig
+  commands: ScannedCommand[]
 ): string {
   const lines: string[] = [];
 
@@ -128,7 +127,7 @@ function generateParseRoute(
   lines.push("");
 
   // Generate matchRoute function (simplified - only matches route, doesn't handle flags)
-  lines.push(generateMatchRoute(commands, config));
+  lines.push(generateMatchRoute(commands));
 
   return lines.join("\n");
 }
@@ -144,8 +143,7 @@ function generateParseRoute(
  * Splat routes ($.ts) match LAST and capture remaining positional args.
  */
 function generateMatchRoute(
-  commands: ScannedCommand[],
-  config: GeneratorConfig
+  commands: ScannedCommand[]
 ): string {
   const lines: string[] = [];
 

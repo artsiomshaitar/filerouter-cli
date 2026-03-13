@@ -17,7 +17,6 @@ export {
   validateArgs,
   validateParams,
   expandAliases,
-  generateUsage,
   extractBooleanFlags,
   type ParsedArgs,
   type ParseOptions,
@@ -25,9 +24,6 @@ export {
 
 // Middleware utilities
 export { executeMiddleware, createGuard } from "./middleware";
-
-// Alias utilities
-export { withAliases, reverseAliases } from "./utils/aliases";
 
 // Shell helper
 export { getShell, $ } from "./shell";

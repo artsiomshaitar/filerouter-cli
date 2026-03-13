@@ -193,7 +193,7 @@ export function generateCommandHelp(
 
   // Usage - for splat, show items as optional
   if (isSplat) {
-    const usageWithOptional = usageParts.map((p, i) => 
+    const usageWithOptional = usageParts.map((p) => 
       p === "<items...>" ? "[items...]" : p
     );
     lines.push(`Usage: ${usageWithOptional.join(" ")} [options]`);
