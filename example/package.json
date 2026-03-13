@@ -1,0 +1,22 @@
+{
+  "name": "example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun ../packages/filerouter-cli/dist/cli/index.js dev -n my-cli",
+    "generate": "bun ../packages/filerouter-cli/dist/cli/index.js generate -n my-cli",
+    "cli": "bun run main.ts"
+  },
+  "dependencies": {
+    "filerouter-cli": "workspace:*",
+    "ink": "^6.8.0",
+    "react": "^19.2.4",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  }
+}

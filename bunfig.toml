@@ -1,0 +1,7 @@
+[install]
+# Save lockfile
+saveExact = true
+
+[test]
+# Test configuration
+coverage = true

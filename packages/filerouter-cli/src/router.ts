@@ -1,0 +1,158 @@
+import type { FileCommand, ParsedRoute, Router, RouterConfig } from "./types";
+import { CommandNotFoundError, RedirectError } from "./errors";
+import { executeCommand, executeWithLayouts, findLayoutChain } from "./context";
+import { generateCommandHelp, generateGlobalHelp, hasHelpFlag } from "./help";
+
+/**
+ * Create a commands router
+ *
+ * @example
+ * ```ts
+ * import { createCommandsRouter } from "filerouter-cli";
+ * import { commandsTree } from "./commandsTree.gen";
+ *
+ * export const router = createCommandsRouter({
+ *   commandsTree,
+ *   context: { db: database },
+ *   defaultOnError: (error) => console.error(error),
+ * });
+ *
+ * // In main.ts
+ * const route = parseRoute(process.argv);
+ * await router.run(route);
+ * ```
+ */
+export function createCommandsRouter<TContext extends Record<string, unknown> = Record<string, unknown>>(
+  config: RouterConfig<TContext>
+): Router<TContext> {
+  const {
+    commandsTree,
+    context = {} as TContext,
+    defaultOnError,
+    cliName = "cli",
+  } = config;
+
+  /**
+   * Get available command paths for error messages
+   */
+  function getAvailableCommands(): string[] {
+    return Object.keys(commandsTree).filter((path) => {
+      // Filter out layout-only commands (paths ending with / but not root)
+      // and pathless layouts (starting with _)
+      const segments = path.split("/").filter(Boolean);
+      const lastSegment = segments[segments.length - 1];
+      return !lastSegment?.startsWith("_");
+    });
+  }
+
+  /**
+   * Find a command by path
+   */
+  function findCommand(path: string): FileCommand | undefined {
+    return commandsTree[path];
+  }
+
+  /**
+   * Execute a command and handle its output
+   */
+  async function runCommand(
+    route: ParsedRoute,
+    printOutput: boolean
+  ): Promise<string | number | void> {
+    // Check for global help (--help with no command)
+    if (route.path === "__help__" || (route.path === "/" && hasHelpFlag(route.args))) {
+      const helpText = generateGlobalHelp(commandsTree, cliName);
+      if (printOutput) console.log(helpText);
+      return helpText;
+    }
+
+    const command = findCommand(route.path);
+
+    if (!command) {
+      throw new CommandNotFoundError(route.path, getAvailableCommands());
+    }
+
+    // Check for command-specific help
+    if (hasHelpFlag(route.args)) {
+      const helpText = generateCommandHelp(
+        command,
+        cliName,
+        route.path,
+        command.config.aliases
+      );
+      if (printOutput) console.log(helpText);
+      return helpText;
+    }
+
+    try {
+      // Find layout chain
+      const layouts = findLayoutChain(route.path, commandsTree);
+
+      // Execute with layouts
+      const result = await executeWithLayouts(
+        command,
+        layouts,
+        route,
+        context
+      );
+
+      // Handle output
+      if (printOutput) {
+        if (typeof result === "string") {
+          console.log(result);
+        } else if (typeof result === "number") {
+          process.exit(result);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      // Handle redirects
+      if (error instanceof RedirectError) {
+        const newRoute: ParsedRoute = {
+          path: error.path,
+          params: {},
+          args: error.args ?? {},
+          rawArgs: [],
+        };
+        return runCommand(newRoute, printOutput);
+      }
+
+      // Handle command-specific error handler
+      if (command.config.onError) {
+        const handled = command.config.onError(error as Error);
+        if (handled !== undefined) {
+          if (printOutput) {
+            console.error(handled);
+          }
+          return handled;
+        }
+      }
+
+      // Handle global error handler
+      if (defaultOnError) {
+        defaultOnError(error as Error);
+        return;
+      }
+
+      // Re-throw if no error handler
+      throw error;
+    }
+  }
+
+  return {
+    /**
+     * Run a command (prints output to console)
+     */
+    async run(route: ParsedRoute): Promise<void> {
+      await runCommand(route, true);
+    },
+
+    /**
+     * Invoke a command programmatically (returns result without printing)
+     */
+    async invoke(route: ParsedRoute): Promise<string | number | void> {
+      return runCommand(route, false);
+    },
+  };
+}

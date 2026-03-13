@@ -1,0 +1,5 @@
+{
+  "name": "filerouter-cli-monorepo",
+  "private": true,
+  "workspaces": ["packages/*", "example"]
+}
