@@ -21,7 +21,7 @@ export function generateCommandsTree(
 
   // Imports
   lines.push("import { ParseError, parseRawArgs, extractBooleanFlags } from 'filerouter-cli';");
-  lines.push("import type { ParsedRoute } from 'filerouter-cli';");
+  lines.push("import type { ParsedRoute, EmptyParams } from 'filerouter-cli';");
   lines.push("");
 
   // Command imports
@@ -50,6 +50,9 @@ export function generateCommandsTree(
 
   // Generate commandInfo function
   lines.push(generateCommandInfo(commands, config));
+
+  // Generate Register declaration for type-safe runCommand
+  lines.push(generateRegisterDeclaration(commands));
 
   return lines.join("\n");
 }
@@ -367,6 +370,95 @@ function generateCommandInfo(
   lines.push("      return parts.join(' ');");
   lines.push("    },");
   lines.push("  };");
+  lines.push("}");
+
+  return lines.join("\n");
+}
+
+/**
+ * Extract param names from a route path
+ */
+function extractPathParams(routePath: string): string[] {
+  const params: string[] = [];
+  const segments = routePath.split("/");
+
+  for (const segment of segments) {
+    if (segment.startsWith("$")) {
+      const paramName = segment.slice(1);
+      if (paramName === "") {
+        params.push("_splat");
+      } else {
+        params.push(paramName);
+      }
+    }
+  }
+
+  return params;
+}
+
+/**
+ * Generate the Register declaration for type-safe runCommand
+ * 
+ * This uses TypeScript declaration merging to extend the Register interface
+ * in filerouter-cli with the actual command types from this project.
+ * 
+ * Note: We use a separate type alias for CommandPath in the Register to avoid
+ * circular references when commands use runCommand().
+ */
+function generateRegisterDeclaration(commands: ScannedCommand[]): string {
+  const lines: string[] = [];
+
+  lines.push("");
+  lines.push("// Type-safe runCommand support via declaration merging");
+  lines.push("// This extends the Register interface in filerouter-cli with actual command types");
+  lines.push("");
+
+  // Generate a path literal union directly (not referencing CommandPath which can cause cycles)
+  const pathUnion = commands.map((cmd) => `"${cmd.routePath}"`).join(" | ");
+  lines.push(`type RegisteredCommandPath = ${pathUnion};`);
+  lines.push("");
+
+  // Generate CommandArgsMap - for now, use Record<string, unknown> as a simple fallback
+  // Full type inference from validateArgs schemas would require more complex codegen
+  // that reads and parses the actual schema definitions
+  lines.push("type CommandArgsMap = {");
+  for (const cmd of commands) {
+    // For simplicity, we use Record<string, unknown> for all args
+    // This still provides path validation while avoiding circular reference issues
+    // Users get full type safety within their handlers from createFileCommand's inference
+    lines.push(`  "${cmd.routePath}": Record<string, unknown>;`);
+  }
+  lines.push("};");
+  lines.push("");
+
+  // Generate CommandParamsMap - derive params type from route path
+  // Use EmptyParams type from filerouter-cli for commands without params
+  lines.push("type CommandParamsMap = {");
+  for (const cmd of commands) {
+    const params = extractPathParams(cmd.routePath);
+    if (params.length === 0) {
+      // Import EmptyParams will be handled by adding to imports
+      lines.push(`  "${cmd.routePath}": EmptyParams;`);
+    } else {
+      const paramTypes = params.map((p) => {
+        if (p === "_splat") {
+          return `_splat: string[]`;
+        }
+        return `${p}: string`;
+      });
+      lines.push(`  "${cmd.routePath}": { ${paramTypes.join("; ")} };`);
+    }
+  }
+  lines.push("};");
+  lines.push("");
+
+  // Generate the declaration merging
+  lines.push("declare module 'filerouter-cli' {");
+  lines.push("  interface Register {");
+  lines.push("    commandPath: RegisteredCommandPath;");
+  lines.push("    commandArgs: CommandArgsMap;");
+  lines.push("    commandParams: CommandParamsMap;");
+  lines.push("  }");
   lines.push("}");
 
   return lines.join("\n");

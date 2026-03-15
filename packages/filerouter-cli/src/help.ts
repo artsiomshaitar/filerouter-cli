@@ -158,7 +158,7 @@ function getParamDescription(
  * Generate help text for a specific command
  */
 export function generateCommandHelp(
-  command: FileCommand,
+  command: FileCommand<any, any, any, any>,
   cliName: string,
   routePath: string,
   aliases?: Record<string, string[]>
@@ -256,7 +256,7 @@ export function generateCommandHelp(
  * Generate global help text showing all available commands
  */
 export function generateGlobalHelp(
-  commandsTree: Record<string, FileCommand>,
+  commandsTree: Record<string, FileCommand<any, any, any, any>>,
   cliName: string
 ): string {
   const lines: string[] = [];

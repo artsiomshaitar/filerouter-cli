@@ -32,7 +32,7 @@ describe("generateCommandsTree", () => {
       const code = generateCommandsTree([], defaultConfig);
 
       expect(code).toContain("import { ParseError, parseRawArgs, extractBooleanFlags } from 'filerouter-cli'");
-      expect(code).toContain("import type { ParsedRoute } from 'filerouter-cli'");
+      expect(code).toContain("import type { ParsedRoute, EmptyParams } from 'filerouter-cli'");
     });
 
     it("imports commands with correct variable names", () => {

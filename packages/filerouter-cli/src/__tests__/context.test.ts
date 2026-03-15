@@ -120,20 +120,6 @@ describe("executeCommand", () => {
       expect(hasShell).toBe(true);
     });
 
-    it("handler receives redirect function", async () => {
-      let hasRedirect = false;
-
-      const command = createFileCommand("/test")({
-        description: "Test",
-        handler: async ({ redirect }) => {
-          hasRedirect = typeof redirect === "function";
-          return "done";
-        },
-      });
-
-      await executeCommand(command, createRoute(), {});
-      expect(hasRedirect).toBe(true);
-    });
   });
 
   describe("validation", () => {
@@ -404,7 +390,7 @@ describe("findLayoutChain", () => {
       "/_auth/protected": protectedCmd,
       "/_auth/_admin/dashboard": adminDashboard,
       "/regular": regularCmd,
-    } as Record<string, FileCommand>;
+    } as Record<string, FileCommand<any, any, any, any>>;
   };
 
   it("returns empty array for path with no layouts", () => {

@@ -1,5 +1,5 @@
 import type { FileCommand, ParsedRoute, Router, RouterConfig } from "./types";
-import { CommandNotFoundError, RedirectError } from "./errors";
+import { CommandNotFoundError, RunCommandError } from "./errors";
 import { executeCommand, executeWithLayouts, findLayoutChain } from "./context";
 import { generateCommandHelp, generateGlobalHelp, hasHelpFlag } from "./help";
 
@@ -48,14 +48,14 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
   /**
    * Find a command by path
    */
-  function findCommand(path: string): FileCommand | undefined {
+  function findCommand(path: string): FileCommand<any, any, any, any> | undefined {
     return commandsTree[path];
   }
 
   /**
    * Execute a command and handle its output
    */
-  async function runCommand(
+  async function handleRoute(
     route: ParsedRoute,
     printOutput: boolean
   ): Promise<string | number | void> {
@@ -107,15 +107,15 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
 
       return result;
     } catch (error) {
-      // Handle redirects
-      if (error instanceof RedirectError) {
+      // Handle runCommand calls (command invoking another command)
+      if (error instanceof RunCommandError) {
         const newRoute: ParsedRoute = {
           path: error.path,
           params: {},
           args: error.args ?? {},
           rawArgs: [],
         };
-        return runCommand(newRoute, printOutput);
+        return handleRoute(newRoute, printOutput);
       }
 
       // Handle command-specific error handler
@@ -145,14 +145,14 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
      * Run a command (prints output to console)
      */
     async run(route: ParsedRoute): Promise<void> {
-      await runCommand(route, true);
+      await handleRoute(route, true);
     },
 
     /**
      * Invoke a command programmatically (returns result without printing)
      */
     async invoke(route: ParsedRoute): Promise<string | number | void> {
-      return runCommand(route, false);
+      return handleRoute(route, false);
     },
   };
 }

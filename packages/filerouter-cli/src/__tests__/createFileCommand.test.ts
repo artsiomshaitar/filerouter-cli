@@ -423,8 +423,6 @@ describe("createFileCommand", () => {
         description: "Get user",
         paramsDescription: {
           userId: "User ID",
-          // @ts-expect-error - invalid param name would be caught by TypeScript
-          // invalidParam: "This should error",
         },
         handler: async ({ params }) => {
           // params.userId should be typed as string

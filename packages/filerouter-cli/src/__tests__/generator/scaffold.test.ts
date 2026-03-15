@@ -179,8 +179,8 @@ describe("generateBoilerplate", () => {
       const code = generateBoilerplate("/install/$", "splat", ["_splat"]);
 
       expect(code).toContain("params._splat");
-      // Should show it's an array
-      expect(code).toContain("join") || expect(code).toContain("_splat");
+      // Should show it's an array - check that either join or _splat is present
+      expect(code.includes("join") || code.includes("_splat")).toBe(true);
     });
 
     it("includes paramsDescription for _splat", () => {

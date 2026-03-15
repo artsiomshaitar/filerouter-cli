@@ -25,17 +25,17 @@ export class ParseError extends Error {
 }
 
 /**
- * Error thrown by redirect() to navigate to another command
- * Caught by the router to perform the redirect
+ * Error thrown by runCommand() to execute another command
+ * Caught by the router to run the target command
  */
-export class RedirectError extends Error {
-  public readonly name = "RedirectError";
+export class RunCommandError extends Error {
+  public readonly name = "RunCommandError";
 
   constructor(
     public readonly path: string,
     public readonly args?: Record<string, unknown>
   ) {
-    super(`Redirect to ${path}`);
+    super(`Run command: ${path}`);
   }
 }
 

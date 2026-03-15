@@ -44,15 +44,6 @@ export type Middleware<TContext = Record<string, unknown>> = (
 ) => Promise<void>;
 
 /**
- * Redirect function type
- * Throws a RedirectError to navigate to another command
- */
-export type RedirectFn = <TPath extends string>(
-  path: TPath,
-  options?: { args?: Record<string, unknown> }
-) => never;
-
-/**
  * Handler context - what gets passed to each command handler
  */
 export interface HandlerContext<
@@ -68,8 +59,6 @@ export interface HandlerContext<
   context: TContext;
   /** Shell execution (Bun.$) */
   $: ShellFn;
-  /** Navigate to another command */
-  redirect: RedirectFn;
   /** For layout commands - the child command's output (Promise) */
   outlet?: Promise<string | number | void>;
   /** Raw argv for advanced use */
@@ -135,7 +124,7 @@ export interface FileCommand<
  */
 export interface RouterConfig<TContext = Record<string, unknown>> {
   /** The commands tree (auto-generated) */
-  commandsTree: Record<string, FileCommand>;
+  commandsTree: Record<string, FileCommand<any, any, any, any>>;
   /** Shared context available to all commands */
   context?: TContext;
   /** Global error handler */

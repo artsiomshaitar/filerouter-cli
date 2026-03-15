@@ -2,10 +2,13 @@
 export { createFileCommand } from "./createFileCommand";
 export { createCommandsRouter } from "./router";
 
+// Run command (type-safe command invocation)
+export { runCommand, isRunCommand, type Register, type EmptyParams } from "./runCommand";
+
 // Error types
 export {
   ParseError,
-  RedirectError,
+  RunCommandError,
   CommandNotFoundError,
   MiddlewareError,
   type ParseErrorCode,
@@ -49,7 +52,6 @@ export type {
   HandlerContext,
   CommandHandler,
   Middleware,
-  RedirectFn,
   ShellFn,
 } from "./types";
 

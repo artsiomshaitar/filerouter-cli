@@ -2,27 +2,16 @@ import type {
   FileCommand,
   HandlerContext,
   ParsedRoute,
-  RedirectFn,
 } from "./types";
-import { RedirectError } from "./errors";
 import { getShell } from "./shell";
 import { validateArgs, validateParams } from "./parser";
 import { executeMiddleware } from "./middleware";
 
 /**
- * Create a redirect function that throws RedirectError
- */
-function createRedirect(): RedirectFn {
-  return (path, options) => {
-    throw new RedirectError(path, options?.args);
-  };
-}
-
-/**
  * Execute a command with all its middleware and handler
  */
 export async function executeCommand<TContext extends Record<string, unknown>>(
-  command: FileCommand,
+  command: FileCommand<any, any, any, any>,
   route: ParsedRoute,
   userContext: TContext,
   outlet?: Promise<string | number | void>
@@ -51,7 +40,6 @@ export async function executeCommand<TContext extends Record<string, unknown>>(
     params: validatedParams,
     context: userContext,
     $: getShell(),
-    redirect: createRedirect(),
     outlet,
     rawArgs: route.rawArgs,
   };
@@ -84,9 +72,9 @@ export async function executeCommand<TContext extends Record<string, unknown>>(
  */
 export function findLayoutChain(
   path: string,
-  commandsTree: Record<string, FileCommand>
-): FileCommand[] {
-  const layouts: FileCommand[] = [];
+  commandsTree: Record<string, FileCommand<any, any, any, any>>
+): FileCommand<any, any, any, any>[] {
+  const layouts: FileCommand<any, any, any, any>[] = [];
   const segments = path.split("/").filter(Boolean);
 
   // Build parent paths and check for layouts
@@ -115,8 +103,8 @@ export function findLayoutChain(
  * Execution order: outermost layout -> innermost layout -> command
  */
 export async function executeWithLayouts<TContext extends Record<string, unknown>>(
-  command: FileCommand,
-  layouts: FileCommand[],
+  command: FileCommand<any, any, any, any>,
+  layouts: FileCommand<any, any, any, any>[],
   route: ParsedRoute,
   userContext: TContext
 ): Promise<string | number | void> {

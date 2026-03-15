@@ -2,11 +2,12 @@ import { describe, it, expect, mock, spyOn, beforeEach, afterEach } from "bun:te
 import { z } from "zod";
 import { createCommandsRouter } from "../router";
 import { createFileCommand } from "../createFileCommand";
+import { runCommand } from "../runCommand";
 import type { FileCommand, ParsedRoute } from "../types";
-import { RedirectError, ParseError } from "../errors";
+import { RunCommandError, ParseError } from "../errors";
 
 // Helper to create test commands tree
-function createTestTree(): Record<string, FileCommand> {
+function createTestTree(): Record<string, FileCommand<any, any, any, any>> {
   return {
     "/": createFileCommand("/")({
       description: "Root command",
@@ -56,10 +57,10 @@ function createTestTree(): Record<string, FileCommand> {
       description: "No output",
       handler: async () => {},
     }),
-    "/redirect-source": createFileCommand("/redirect-source")({
-      description: "Redirects to auth",
-      handler: async ({ redirect }) => {
-        return redirect("/auth", { args: { username: "redirected" } });
+    "/runcommand-source": createFileCommand("/runcommand-source")({
+      description: "Runs auth command",
+      handler: async () => {
+        return runCommand("/auth", { args: { username: "redirected" } });
       },
     }),
     "/_layout": createFileCommand("/_layout")({
@@ -336,25 +337,25 @@ describe("createCommandsRouter", () => {
     });
   });
 
-  describe("redirect handling", () => {
-    it("follows redirect to another command", async () => {
+  describe("runCommand handling", () => {
+    it("follows runCommand to another command", async () => {
       const tree = createTestTree();
       const router = createCommandsRouter({ commandsTree: tree });
 
       const result = await router.invoke(
-        createRoute({ path: "/redirect-source" })
+        createRoute({ path: "/runcommand-source" })
       );
 
       expect(result).toBe("auth: redirected");
     });
 
-    it("redirect preserves args", async () => {
-      // Create a command that redirects with specific args
-      const treeWithRedirect: Record<string, FileCommand> = {
+    it("runCommand preserves args", async () => {
+      // Create a command that runs another command with specific args
+      const treeWithRunCommand: Record<string, FileCommand<any, any, any, any>> = {
         "/source": createFileCommand("/source")({
           description: "Source",
-          handler: async ({ redirect }) => {
-            return redirect("/target", { args: { value: "passed" } });
+          handler: async () => {
+            return runCommand("/target", { args: { value: "passed" } });
           },
         }),
         "/target": createFileCommand("/target")({
@@ -364,7 +365,7 @@ describe("createCommandsRouter", () => {
         }),
       };
 
-      const router = createCommandsRouter({ commandsTree: treeWithRedirect });
+      const router = createCommandsRouter({ commandsTree: treeWithRunCommand });
       const result = await router.invoke(createRoute({ path: "/source" }));
 
       expect(result).toBe("received: passed");
@@ -388,7 +389,7 @@ describe("createCommandsRouter", () => {
     it("passes user context to commands", async () => {
       let receivedContext: any = null;
 
-      const treeWithContext: Record<string, FileCommand> = {
+      const treeWithContext: Record<string, FileCommand<any, any, any, any>> = {
         "/test": createFileCommand("/test")({
           description: "Test",
           handler: async ({ context }) => {
@@ -458,19 +459,19 @@ describe("createCommandsRouter", () => {
   });
 });
 
-// Note: The current router implementation does not have redirect loop prevention.
+// Note: The current router implementation does not have runCommand loop prevention.
 // This test is skipped to avoid infinite loops during testing.
 // If loop prevention is added, this test can be enabled.
-describe.skip("redirect loop prevention", () => {
-  it("detects and prevents infinite redirect loops", async () => {
-    const loopTree: Record<string, FileCommand> = {
+describe.skip("runCommand loop prevention", () => {
+  it("detects and prevents infinite runCommand loops", async () => {
+    const loopTree: Record<string, FileCommand<any, any, any, any>> = {
       "/a": createFileCommand("/a")({
         description: "A",
-        handler: async ({ redirect }) => redirect("/b"),
+        handler: async () => runCommand("/b"),
       }),
       "/b": createFileCommand("/b")({
         description: "B",
-        handler: async ({ redirect }) => redirect("/a"),
+        handler: async () => runCommand("/a"),
       }),
     };
 

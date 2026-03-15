@@ -224,7 +224,7 @@ describe("generateCommandHelp", () => {
 });
 
 describe("generateGlobalHelp", () => {
-  const createMockTree = (): Record<string, FileCommand> => ({
+  const createMockTree = (): Record<string, FileCommand<any, any, any, any>> => ({
     "/": createFileCommand("/")({
       description: "Root command",
       handler: async () => {},

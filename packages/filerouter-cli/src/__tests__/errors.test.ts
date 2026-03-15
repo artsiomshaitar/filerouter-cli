@@ -1,7 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import {
   ParseError,
-  RedirectError,
+  RunCommandError,
   CommandNotFoundError,
   MiddlewareError,
 } from "../errors";
@@ -93,16 +93,16 @@ describe("ParseError", () => {
   });
 });
 
-describe("RedirectError", () => {
+describe("RunCommandError", () => {
   it("creates error with path", () => {
-    const error = new RedirectError("/auth");
+    const error = new RunCommandError("/auth");
 
     expect(error.path).toBe("/auth");
     expect(error.args).toBeUndefined();
   });
 
   it("creates error with path and args", () => {
-    const error = new RedirectError("/users/$userId", {
+    const error = new RunCommandError("/users/$userId", {
       userId: "123",
       verbose: true,
     });
@@ -111,25 +111,25 @@ describe("RedirectError", () => {
     expect(error.args).toEqual({ userId: "123", verbose: true });
   });
 
-  it('has name "RedirectError"', () => {
-    const error = new RedirectError("/test");
-    expect(error.name).toBe("RedirectError");
+  it('has name "RunCommandError"', () => {
+    const error = new RunCommandError("/test");
+    expect(error.name).toBe("RunCommandError");
   });
 
   it("is instanceof Error", () => {
-    const error = new RedirectError("/test");
+    const error = new RunCommandError("/test");
     expect(error).toBeInstanceOf(Error);
-    expect(error).toBeInstanceOf(RedirectError);
+    expect(error).toBeInstanceOf(RunCommandError);
   });
 
   it("has descriptive message", () => {
-    const error = new RedirectError("/auth/login");
+    const error = new RunCommandError("/auth/login");
     expect(error.message).toContain("/auth/login");
   });
 
   it("preserves args in message", () => {
-    const error = new RedirectError("/test", { foo: "bar" });
-    expect(error.message).toContain("Redirect to /test");
+    const error = new RunCommandError("/test", { foo: "bar" });
+    expect(error.message).toContain("Run command: /test");
   });
 });
 
@@ -227,7 +227,7 @@ describe("MiddlewareError", () => {
 describe("error inheritance chain", () => {
   it("all errors extend Error", () => {
     expect(new ParseError("", "", "UNKNOWN_COMMAND")).toBeInstanceOf(Error);
-    expect(new RedirectError("/")).toBeInstanceOf(Error);
+    expect(new RunCommandError("/")).toBeInstanceOf(Error);
     expect(new CommandNotFoundError("", [])).toBeInstanceOf(Error);
     expect(new MiddlewareError("", new Error())).toBeInstanceOf(Error);
   });
@@ -235,7 +235,7 @@ describe("error inheritance chain", () => {
   it("errors can be caught generically", () => {
     const errors = [
       new ParseError("", "", "UNKNOWN_COMMAND"),
-      new RedirectError("/"),
+      new RunCommandError("/"),
       new CommandNotFoundError("", []),
       new MiddlewareError("", new Error()),
     ];
@@ -251,7 +251,7 @@ describe("error inheritance chain", () => {
 
   it("errors can be caught by specific type", () => {
     const parseError = new ParseError("", "", "UNKNOWN_COMMAND");
-    const redirectError = new RedirectError("/");
+    const runCommandError = new RunCommandError("/");
 
     try {
       throw parseError;
@@ -264,9 +264,9 @@ describe("error inheritance chain", () => {
     }
 
     try {
-      throw redirectError;
+      throw runCommandError;
     } catch (e) {
-      if (e instanceof RedirectError) {
+      if (e instanceof RunCommandError) {
         expect(e.path).toBe("/");
       } else {
         throw new Error("Wrong error type");
