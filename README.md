@@ -25,7 +25,21 @@ bun add filerouter-cli zod
 
 ## Quick Start
 
-### 1. Create your commands directory
+The fastest way to get started is using the `init` command:
+
+```bash
+bunx filerouter-cli init my-cli
+cd my-cli
+bun install
+bun run generate
+bun run start --help
+```
+
+This creates a ready-to-use project with example commands.
+
+### Manual Setup
+
+If you prefer to set up manually, create your project structure:
 
 ```
 my-cli/
@@ -41,7 +55,7 @@ my-cli/
 └── package.json
 ```
 
-### 2. Create a command
+### Creating Commands
 
 ```typescript
 // commands/auth.ts
@@ -65,7 +79,7 @@ export const Command = createFileCommand("/auth")({
 });
 ```
 
-### 3. Generate the route tree
+### Generate the route tree
 
 ```bash
 bunx filerouter-cli generate
@@ -73,11 +87,11 @@ bunx filerouter-cli generate
 
 This creates `commandsTree.gen.ts` with all your routes.
 
-### 4. Create your main entry point
+### Main entry point
 
 ```typescript
 // main.ts
-import { createCommandsRouter } from "filerouter-cli";
+import { createCommandsRouter, ParseError, CommandNotFoundError } from "filerouter-cli";
 import { commandsTree, parseRoute } from "./commandsTree.gen";
 
 const router = createCommandsRouter({
@@ -85,11 +99,24 @@ const router = createCommandsRouter({
   cliName: "my-cli",
 });
 
-const route = parseRoute(process.argv);
-await router.run(route);
+async function main() {
+  try {
+    const route = parseRoute(process.argv);
+    await router.run(route);
+  } catch (error) {
+    if (error instanceof ParseError || error instanceof CommandNotFoundError) {
+      console.error(`Error: ${error.message}`);
+      console.log(`\n${error.help}`);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
+
+main();
 ```
 
-### 5. Run your CLI
+### Run your CLI
 
 ```bash
 bun run main.ts auth --token abc123
@@ -271,24 +298,56 @@ const router = createCommandsRouter({
 
 ## CLI Commands
 
+### Initialize a new project
+
+```bash
+bunx filerouter-cli init <project-name> [options]
+  -n, --name <name>    CLI name (default: project name)
+```
+
+Creates a new project with:
+- `commands/` directory with example commands
+- `main.ts` entry point
+- `package.json` with scripts
+- `tsconfig.json` configured for Bun
+
 ### Generate routes
 
 ```bash
 bunx filerouter-cli generate [options]
-  -d, --dir <path>     Commands directory (default: ./commands)
-  -o, --output <path>  Output file (default: ./commandsTree.gen.ts)
-  -n, --name <name>    CLI name for help text
+  -c, --commands <path>  Commands directory (default: ./commands)
+  -o, --output <path>    Output file (default: ./commandsTree.gen.ts)
+  -n, --name <name>      CLI name for help text
 ```
 
 ### Development mode
 
 ```bash
 bunx filerouter-cli dev [options]
-  -d, --dir <path>     Commands directory
-  -e, --entry <path>   Entry file (default: ./main.ts)
+  -c, --commands <path>  Commands directory (default: ./commands)
+  -o, --output <path>    Output file (default: ./commandsTree.gen.ts)
 ```
 
 Watches for file changes and regenerates routes automatically.
+
+### Shell completion
+
+```bash
+bunx filerouter-cli completion <shell>
+```
+
+Generates shell completion scripts for bash, zsh, or fish.
+
+```bash
+# Bash
+eval "$(filerouter-cli completion bash)"
+
+# Zsh
+eval "$(filerouter-cli completion zsh)"
+
+# Fish
+filerouter-cli completion fish > ~/.config/fish/completions/filerouter-cli.fish
+```
 
 ## Example Project Structure
 

@@ -4,9 +4,10 @@ import { Header } from "./Header.js";
 import { Output, OutputEntry, OutputEntryType } from "./Output.js";
 import { Prompt } from "./Prompt.js";
 import { startWatcher, getInitialCommandCount } from "../watcher.js";
+import { getVersion } from "../version.js";
 import * as path from "path";
 
-const VERSION = "0.1.0";
+const VERSION = getVersion();
 
 // State persisted via globalThis across hot reloads
 declare global {
