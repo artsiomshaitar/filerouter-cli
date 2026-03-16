@@ -6,7 +6,7 @@
       "name": "filerouter-cli-monorepo",
     },
     "example": {
-      "name": "example",
+      "name": "example-cli",
       "version": "0.0.0",
       "dependencies": {
         "filerouter-cli": "workspace:*",
@@ -22,7 +22,7 @@
     },
     "packages/filerouter-cli": {
       "name": "filerouter-cli",
-      "version": "0.1.0",
+      "version": "0.1.0-alpha.1",
       "bin": {
         "filerouter-cli": "./dist/cli/index.js",
       },
@@ -80,7 +80,7 @@
 
     "escape-string-regexp": ["escape-string-regexp@2.0.0", "", {}, "sha512-UpzcLCXolUWcNu5HtVMHYdXJjArjsF9C0aNnquZYY4uW/Vu0miy5YoWvbV345HauVvcAUnpRuhMMcqTcGOY2+w=="],
 
-    "example": ["example@workspace:example"],
+    "example-cli": ["example-cli@workspace:example"],
 
     "filerouter-cli": ["filerouter-cli@workspace:packages/filerouter-cli"],
 

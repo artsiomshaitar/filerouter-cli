@@ -4,9 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun ../packages/filerouter-cli/dist/cli/index.js dev main.ts",
-    "generate": "bun ../packages/filerouter-cli/dist/cli/index.js generate",
-    "cli": "bun run main.ts"
+    "dev": "bun filerouter-cli dev main.ts",
+    "generate": "bun filerouter-cli generate"
   },
   "dependencies": {
     "filerouter-cli": "workspace:*",

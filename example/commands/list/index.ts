@@ -16,10 +16,14 @@ export const Command = createFileCommand("/list")({
   aliases: {
     filter: ["f"],
   },
-  handler: async ({ args }) => {
+  handler: async ({ args, context }) => {
     const { filter } = args;
 
+    context.logger.debug("Fetching projects...");
+
     const projects = await getProjects(filter);
+
+    context.logger.debug(`Found ${projects.length} projects`);
 
     if (projects.length === 0) {
       return "No projects found.";

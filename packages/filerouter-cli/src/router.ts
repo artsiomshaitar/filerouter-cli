@@ -24,7 +24,7 @@ import { getProjectName } from "./packageJson";
  * await router.run(route);
  * ```
  */
-export function createCommandsRouter<TContext extends Record<string, unknown> = Record<string, unknown>>(
+export function createCommandsRouter<TContext extends object = object>(
   config: RouterConfig<TContext>
 ): Router<TContext> {
   const {

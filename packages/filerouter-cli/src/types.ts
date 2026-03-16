@@ -1,4 +1,42 @@
 import type { z } from "zod";
+import type { RootCommand } from "./createRootCommand";
+
+/**
+ * File commands by path - extended by generated code for type-safe context inference
+ * 
+ * This interface is populated by the generated `commandsTree.gen.ts` file via
+ * declaration merging. It maps each command path to its metadata including
+ * the parent command type, which enables automatic context type inference.
+ * 
+ * @example
+ * ```ts
+ * // Generated in commandsTree.gen.ts:
+ * declare module 'filerouter-cli' {
+ *   interface FileCommandsByPath {
+ *     '/': {
+ *       id: '/';
+ *       path: '/';
+ *       fullPath: '/';
+ *       parentCommand: typeof RootCommand;
+ *     };
+ *     '/list': {
+ *       id: '/list';
+ *       path: '/list';
+ *       fullPath: '/list';
+ *       parentCommand: typeof RootCommand;
+ *     };
+ *   }
+ * }
+ * ```
+ */
+export interface FileCommandsByPath {
+  // Extended by generated code
+}
+
+/**
+ * Any command type (root or file command)
+ */
+export type AnyCommand = RootCommand<any> | FileCommand<any, any, any, any>;
 
 /**
  * Extract param names from a route path string
@@ -38,7 +76,7 @@ export type ShellFn = typeof Bun.$;
  * Middleware function type
  * Receives context and a next function to call the next middleware
  */
-export type Middleware<TContext = Record<string, unknown>> = (
+export type Middleware<TContext = object> = (
   context: TContext,
   next: () => Promise<void>
 ) => Promise<void>;
@@ -49,7 +87,7 @@ export type Middleware<TContext = Record<string, unknown>> = (
 export interface HandlerContext<
   TArgs = Record<string, unknown>,
   TParams = Record<string, unknown>,
-  TContext = Record<string, unknown>,
+  TContext = object,
 > {
   /** Parsed and validated arguments (flags) */
   args: TArgs;
@@ -71,7 +109,7 @@ export interface HandlerContext<
 export type CommandHandler<
   TArgs = Record<string, unknown>,
   TParams = Record<string, unknown>,
-  TContext = Record<string, unknown>,
+  TContext = object,
 > = (ctx: HandlerContext<TArgs, TParams, TContext>) => Promise<string | number | void>;
 
 /**
@@ -81,7 +119,7 @@ export interface CommandConfig<
   TPath extends string = string,
   TArgs extends z.ZodTypeAny = z.ZodObject<Record<string, never>>,
   TParams extends z.ZodTypeAny = z.ZodObject<Record<string, never>>,
-  TContext = Record<string, unknown>,
+  TContext = object,
 > {
   /** Description shown in help text */
   description: string;
@@ -105,24 +143,54 @@ export interface CommandConfig<
 }
 
 /**
+ * Update options for a file command (used by generated code)
+ */
+export interface FileCommandUpdateOptions<TParentCommand extends AnyCommand = AnyCommand> {
+  /** Command ID (usually same as path) */
+  id?: string;
+  /** Command path segment */
+  path?: string;
+  /** Function that returns the parent command */
+  getParentCommand?: () => TParentCommand;
+}
+
+/**
  * Command definition (what gets exported from each command file)
  */
 export interface FileCommand<
   TPath extends string = string,
   TArgs extends z.ZodTypeAny = z.ZodTypeAny,
   TParams extends z.ZodTypeAny = z.ZodTypeAny,
-  TContext = Record<string, unknown>,
+  TContext = object,
 > {
   /** The route path for this command */
   readonly __path: TPath;
   /** The command configuration */
   readonly config: CommandConfig<TPath, TArgs, TParams, TContext>;
+  /** @internal Phantom type for context inference */
+  readonly __context?: TContext;
+  /** @internal Parent command getter (set by generated code) */
+  readonly __getParentCommand?: () => AnyCommand;
+  /**
+   * Update the command with additional options (id, path, parent)
+   * @internal Used by generated code to wire up parent relationships
+   */
+  update: <TParentCommand extends AnyCommand>(
+    opts: FileCommandUpdateOptions<TParentCommand>
+  ) => FileCommand<TPath, TArgs, TParams, TContext>;
+  /**
+   * Add file-based children to this command
+   * @internal Used by generated code for nested commands
+   */
+  _addFileChildren: <TChildren>(
+    children: TChildren
+  ) => FileCommand<TPath, TArgs, TParams, TContext> & { children: TChildren };
 }
 
 /**
  * Router configuration
  */
-export interface RouterConfig<TContext = Record<string, unknown>> {
+export interface RouterConfig<TContext = object> {
   /** The commands tree (auto-generated) */
   commandsTree: Record<string, FileCommand<any, any, any, any>>;
   /** Shared context available to all commands */
@@ -202,9 +270,11 @@ export interface CommandInfo {
 /**
  * Router instance type
  */
-export interface Router<TContext = Record<string, unknown>> {
+export interface Router<TContext = object> {
   /** Run a command (prints output, handles errors) */
   run: (route: ParsedRoute) => Promise<void>;
   /** Invoke a command programmatically (returns result, doesn't print) */
   invoke: (route: ParsedRoute) => Promise<string | number | void>;
+  /** @internal Type-only property for context inference */
+  readonly __context?: TContext;
 }

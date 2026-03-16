@@ -1,5 +1,18 @@
 import type { z } from "zod";
-import type { CommandConfig, FileCommand, ExtractParams } from "./types";
+import type { CommandConfig, FileCommand, FileCommandsByPath, ExtractParams, AnyCommand } from "./types";
+
+/**
+ * Infer context from parent command in FileCommandsByPath
+ * Falls back to object if path not found (before generator runs)
+ */
+type InferContextFromPath<TPath extends string> = 
+  TPath extends keyof FileCommandsByPath
+    ? FileCommandsByPath[TPath] extends { parentCommand: infer P }
+      ? P extends { __context?: infer C }
+        ? C
+        : object
+      : object
+    : object;
 
 /**
  * Creates a file-based command definition.
@@ -11,13 +24,17 @@ import type { CommandConfig, FileCommand, ExtractParams } from "./types";
  * - "/list/$projectId" -> params: { projectId: string }
  * - "/add/$" -> params: { _splat: string[] }
  *
+ * Context type is automatically inferred from the parent command chain,
+ * which is set up by the generated code via `FileCommandsByPath`.
+ *
  * @example
  * ```ts
  * // Simple case with paramsDescription
  * export const Command = createFileCommand("/list/$projectId")({
  *   description: "Get project info",
  *   paramsDescription: { projectId: "The project ID to fetch" },
- *   handler: async ({ params }) => {
+ *   handler: async ({ params, context }) => {
+ *     // context is typed from root command!
  *     return `Project: ${params.projectId}`;
  *   },
  * });
@@ -41,17 +58,33 @@ import type { CommandConfig, FileCommand, ExtractParams } from "./types";
  * });
  * ```
  */
-export function createFileCommand<TPath extends string>(path: TPath) {
+export function createFileCommand<TPath extends keyof FileCommandsByPath | (string & {})>(path: TPath) {
+  type TContext = InferContextFromPath<TPath extends string ? TPath : never>;
+  
   return <
     TArgs extends z.ZodTypeAny = z.ZodObject<Record<string, never>>,
-    TParams extends z.ZodTypeAny = z.ZodType<ExtractParams<TPath>>,
-    TContext = Record<string, unknown>,
+    TParams extends z.ZodTypeAny = z.ZodType<ExtractParams<TPath extends string ? TPath : string>>,
   >(
-    config: CommandConfig<TPath, TArgs, TParams, TContext>
-  ): FileCommand<TPath, TArgs, TParams, TContext> => {
-    return {
-      __path: path,
+    config: CommandConfig<TPath extends string ? TPath : string, TArgs, TParams, TContext>
+  ): FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> => {
+    const command: FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> = {
+      __path: path as TPath extends string ? TPath : string,
       config,
-    } as const;
+      __context: undefined as unknown as TContext,
+      __getParentCommand: undefined,
+      update<TParentCommand extends AnyCommand>(opts: { id?: string; path?: string; getParentCommand?: () => TParentCommand }) {
+        return {
+          ...this,
+          __getParentCommand: opts.getParentCommand,
+        } as FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext>;
+      },
+      _addFileChildren<TChildren>(children: TChildren) {
+        return {
+          ...this,
+          children,
+        } as FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> & { children: TChildren };
+      },
+    };
+    return command;
   };
 }

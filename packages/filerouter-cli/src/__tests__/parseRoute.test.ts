@@ -5,7 +5,7 @@ import type { FileCommand } from "../types";
 
 // Helper to create a minimal mock command
 function mockCommand(path: string, options?: { validateArgs?: unknown; aliases?: Record<string, string[]> }): FileCommand<any, any, any, any> {
-  return {
+  const cmd: FileCommand<any, any, any, any> = {
     __path: path,
     config: {
       description: `Test command for ${path}`,
@@ -13,7 +13,10 @@ function mockCommand(path: string, options?: { validateArgs?: unknown; aliases?:
       validateArgs: options?.validateArgs,
       aliases: options?.aliases,
     },
+    update: () => cmd,
+    _addFileChildren: () => cmd as any,
   };
+  return cmd;
 }
 
 describe("createParseRoute", () => {

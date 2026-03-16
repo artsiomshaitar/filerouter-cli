@@ -325,8 +325,8 @@ describe("scanCommands", () => {
 });
 
 describe("routePathToVarName", () => {
-  it("/ -> Root", () => {
-    expect(routePathToVarName("/")).toBe("Root");
+  it("/ -> Index (to avoid conflict with RootCommand from __root.ts)", () => {
+    expect(routePathToVarName("/")).toBe("Index");
   });
 
   it("/auth -> Auth", () => {

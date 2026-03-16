@@ -15,6 +15,7 @@ const IGNORE_PATTERNS = [
   /\.test\./,
   /\.spec\./,
   /\.d\.ts$/,
+  /^__root\.(ts|tsx|js|jsx)$/, // __root.ts is reserved for RootCommand (like TanStack Router)
 ];
 
 /**
@@ -185,7 +186,7 @@ function parseFilePath(filePath: string): ScannedCommand | null {
  * Convert a route path to a valid JavaScript variable name
  *
  * Examples:
- * - "/" -> "Root"
+ * - "/" -> "Index" (not "Root" to avoid conflict with RootCommand from root.ts)
  * - "/auth" -> "Auth"
  * - "/list/$projectId" -> "ListProjectId"
  * - "/_auth" -> "LayoutAuth"
@@ -193,7 +194,8 @@ function parseFilePath(filePath: string): ScannedCommand | null {
  * - "/add/$" -> "AddSplat"
  */
 export function routePathToVarName(routePath: string): string {
-  if (routePath === "/") return "Root";
+  // Use "Index" for "/" to avoid naming conflict with RootCommand from root.ts
+  if (routePath === "/") return "Index";
 
   const segments = routePath.split("/").filter(Boolean);
   const hasPathlessLayout = segments.some((s) => s.startsWith("_"));

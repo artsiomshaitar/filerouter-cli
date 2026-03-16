@@ -1,6 +1,72 @@
 import * as path from "path";
+import * as fs from "fs";
 import type { ScannedCommand, GeneratorConfig } from "./types";
 import { routePathToVarName, routePathToCliCommand } from "./scanner";
+
+/**
+ * Check if __root.ts exists in the commands directory
+ * (Following TanStack Router's naming convention)
+ */
+function checkRootCommandExists(config: GeneratorConfig): boolean {
+  const rootPath = path.join(config.commandsDirectory, "__root.ts");
+  const rootTsxPath = path.join(config.commandsDirectory, "__root.tsx");
+  return fs.existsSync(rootPath) || fs.existsSync(rootTsxPath);
+}
+
+/**
+ * Get the file extension for root command (ts or tsx)
+ */
+function getRootCommandExtension(config: GeneratorConfig): string {
+  const rootTsxPath = path.join(config.commandsDirectory, "__root.tsx");
+  if (fs.existsSync(rootTsxPath)) {
+    return "tsx";
+  }
+  return "ts";
+}
+
+/**
+ * Determine the parent command for a given route path
+ * 
+ * For nested routes, find the nearest parent:
+ * - "/list/$projectId" -> parent is "/list" if it exists, otherwise RootCommand
+ * - "/list" -> parent is RootCommand (not "/" - top-level routes always parent to RootCommand)
+ * - "/_auth/protected" -> parent is "/_auth" (layout)
+ * - "/" -> parent is RootCommand
+ * 
+ * Note: "/" (IndexCommand) is NOT considered a parent for other top-level routes.
+ * All top-level routes (/auth, /list, /_auth, etc.) parent directly to RootCommand.
+ */
+function getParentCommand(
+  routePath: string,
+  commands: ScannedCommand[]
+): { varName: string; isRoot: boolean } {
+  if (routePath === "/") {
+    return { varName: "RootCommand", isRoot: true };
+  }
+
+  const segments = routePath.split("/").filter(Boolean);
+  
+  // Try to find parent by removing last segment
+  while (segments.length > 0) {
+    segments.pop();
+    const parentPath = segments.length === 0 ? "/" : "/" + segments.join("/");
+    
+    // "/" is not a parent for other routes - only RootCommand (from root.ts) is
+    // This ensures context flows from RootCommand, not from IndexCommand
+    if (parentPath === "/") {
+      return { varName: "RootCommand", isRoot: true };
+    }
+    
+    // Check if this parent exists in commands
+    const parentCmd = commands.find((c) => c.routePath === parentPath);
+    if (parentCmd) {
+      return { varName: routePathToVarName(parentPath) + "Command", isRoot: false };
+    }
+  }
+
+  // Default to RootCommand
+  return { varName: "RootCommand", isRoot: true };
+}
 
 /**
  * Generate the commandsTree.gen.ts file content
@@ -9,6 +75,16 @@ export function generateCommandsTree(
   commands: ScannedCommand[],
   config: GeneratorConfig
 ): string {
+  // Check for __root.ts - it's required (following TanStack Router's naming convention)
+  if (!checkRootCommandExists(config)) {
+    throw new Error(
+      `__root.ts is required in the commands directory (${config.commandsDirectory}).\n` +
+      `Create a __root.ts file with:\n\n` +
+      `import { createRootCommand } from "filerouter-cli";\n\n` +
+      `export const RootCommand = createRootCommand()({ description: "My CLI" });\n`
+    );
+  }
+
   const lines: string[] = [];
 
   // Header
@@ -16,16 +92,40 @@ export function generateCommandsTree(
   lines.push("// Generated at: " + new Date().toISOString());
   lines.push("");
 
-  // Imports
+  // Imports from filerouter-cli
   lines.push("import { createParseRoute, registerCommands } from 'filerouter-cli';");
   lines.push("import type { RouteTable, EmptyParams } from 'filerouter-cli';");
   lines.push("");
 
-  // Command imports
+  // Import root command first (defines context type)
+  // Normalize commandsDirectory - remove leading "./" if present, then add it back
+  const normalizedCmdDir = config.commandsDirectory.replace(/^\.\//, "");
+  const rootImportPath = `./${normalizedCmdDir}/__root`;
+  lines.push(`import { RootCommand } from "${rootImportPath}";`);
+  lines.push("");
+
+  // Command imports (skip root "/" as it's separate)
   for (const cmd of commands) {
     const varName = routePathToVarName(cmd.routePath);
     const importPath = getImportPath(cmd.filePath, config);
-    lines.push(`import { Command as ${varName}Command } from "${importPath}";`);
+    lines.push(`import { Command as ${varName}CommandImport } from "${importPath}";`);
+  }
+  lines.push("");
+
+  // Generate .update() calls to wire up parent relationships
+  lines.push("// Wire up parent relationships (like TanStack Router)");
+  for (const cmd of commands) {
+    const varName = routePathToVarName(cmd.routePath);
+    const parent = getParentCommand(cmd.routePath, commands);
+    
+    // Use RootCommand directly for "/" path's parent reference
+    const parentRef = parent.isRoot ? "RootCommand" : parent.varName;
+    
+    lines.push(`const ${varName}Command = ${varName}CommandImport.update({`);
+    lines.push(`  id: "${cmd.routePath}",`);
+    lines.push(`  path: "${cmd.routePath}",`);
+    lines.push(`  getParentCommand: () => ${parentRef},`);
+    lines.push(`});`);
   }
   lines.push("");
 
@@ -49,6 +149,9 @@ export function generateCommandsTree(
 
   // Generate route table data and parseRoute
   lines.push(generateRouteTable(commands));
+
+  // Generate FileCommandsByPath declaration for type-safe context
+  lines.push(generateFileCommandsByPath(commands));
 
   // Generate Register declaration for type-safe runCommand
   lines.push(generateRegisterDeclaration(commands));
@@ -178,6 +281,43 @@ function extractPathParams(routePath: string): string[] {
   }
 
   return params;
+}
+
+/**
+ * Generate FileCommandsByPath declaration for type-safe context inference
+ * 
+ * This maps each command path to its parent command type, enabling automatic
+ * context type inference in createFileCommand without manual type annotations.
+ */
+function generateFileCommandsByPath(commands: ScannedCommand[]): string {
+  const lines: string[] = [];
+
+  lines.push("");
+  lines.push("// FileCommandsByPath for type-safe context inference");
+  lines.push("// This enables automatic context type inheritance from root command");
+  lines.push("declare module 'filerouter-cli' {");
+  lines.push("  interface FileCommandsByPath {");
+
+  for (const cmd of commands) {
+    const parent = getParentCommand(cmd.routePath, commands);
+    const varName = routePathToVarName(cmd.routePath);
+    
+    // Calculate path segment (last part of the route)
+    const segments = cmd.routePath.split("/").filter(Boolean);
+    const pathSegment = segments.length > 0 ? "/" + segments[segments.length - 1] : "/";
+    
+    lines.push(`    "${cmd.routePath}": {`);
+    lines.push(`      id: "${cmd.routePath}";`);
+    lines.push(`      path: "${pathSegment}";`);
+    lines.push(`      fullPath: "${cmd.routePath}";`);
+    lines.push(`      parentCommand: typeof ${parent.varName};`);
+    lines.push(`    };`);
+  }
+
+  lines.push("  }");
+  lines.push("}");
+
+  return lines.join("\n");
 }
 
 /**

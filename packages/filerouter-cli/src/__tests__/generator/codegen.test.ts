@@ -5,11 +5,33 @@ import { tmpdir } from "os";
 import { generateCommandsTree } from "../../generator/codegen";
 import type { ScannedCommand, GeneratorConfig } from "../../generator/types";
 
+// Helper to create __root.ts file in a commands directory (following TanStack Router's naming convention)
+async function createRootCommand(commandsDir: string): Promise<void> {
+  await mkdir(commandsDir, { recursive: true });
+  await writeFile(
+    join(commandsDir, "__root.ts"),
+    `import { createRootCommand } from "filerouter-cli";
+export const RootCommand = createRootCommand()({ description: "Test CLI" });`
+  );
+}
+
 describe("generateCommandsTree", () => {
-  const defaultConfig: GeneratorConfig = {
-    commandsDirectory: "./commands",
-    generatedFile: "./commandsTree.gen.ts",
-  };
+  let tempDir: string;
+  let defaultConfig: GeneratorConfig;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), "filerouter-codegen-test-"));
+    const commandsDir = join(tempDir, "commands");
+    await createRootCommand(commandsDir);
+    defaultConfig = {
+      commandsDirectory: commandsDir,
+      generatedFile: join(tempDir, "commandsTree.gen.ts"),
+    };
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
 
   describe("header generation", () => {
     it("includes auto-generated comment", () => {
@@ -50,7 +72,9 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain('import { Command as AuthCommand } from "./commands/auth"');
+      // Import path includes the full temp directory path, just check the pattern
+      expect(code).toContain('import { Command as AuthCommandImport } from "');
+      expect(code).toContain('/auth"');
     });
 
     it("generates correct import path for nested commands", () => {
@@ -69,7 +93,8 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain('import { Command as ListProjectIdCommand } from "./commands/list/$projectId"');
+      expect(code).toContain('import { Command as ListProjectIdCommandImport } from "');
+      expect(code).toContain('/list/$projectId"');
     });
 
     it("handles layout imports", () => {
@@ -88,7 +113,8 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain('import { Command as LayoutAuthCommand } from "./commands/_auth/route"');
+      expect(code).toContain('import { Command as LayoutAuthCommandImport } from "');
+      expect(code).toContain('/_auth/route"');
     });
 
     it("handles splat imports", () => {
@@ -107,7 +133,8 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain('import { Command as AddSplatCommand } from "./commands/add/$"');
+      expect(code).toContain('import { Command as AddSplatCommandImport } from "');
+      expect(code).toContain('/add/$"');
     });
   });
 
@@ -139,6 +166,7 @@ describe("generateCommandsTree", () => {
       const code = generateCommandsTree(commands, defaultConfig);
 
       expect(code).toContain("export const commandsTree = {");
+      // Commands are referenced by their updated variable names
       expect(code).toContain('"/auth": AuthCommand,');
       expect(code).toContain('"/list": ListCommand,');
       expect(code).toContain("} as const;");
@@ -314,9 +342,12 @@ describe("generateCommandsTree", () => {
 
 describe("generated code execution", () => {
   let tempDir: string;
+  let commandsDir: string;
 
   beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "filerouter-codegen-test-"));
+    tempDir = await mkdtemp(join(tmpdir(), "filerouter-codegen-exec-test-"));
+    commandsDir = join(tempDir, "commands");
+    await createRootCommand(commandsDir);
   });
 
   afterEach(async () => {
@@ -338,7 +369,7 @@ describe("generated code execution", () => {
     ];
 
     const code = generateCommandsTree(commands, {
-      commandsDirectory: "./commands",
+      commandsDirectory: commandsDir,
       generatedFile: join(tempDir, "commandsTree.gen.ts"),
     });
 
@@ -346,9 +377,8 @@ describe("generated code execution", () => {
     await writeFile(join(tempDir, "commandsTree.gen.ts"), code);
 
     // Create mock command file
-    await mkdir(join(tempDir, "commands"), { recursive: true });
     await writeFile(
-      join(tempDir, "commands/auth.ts"),
+      join(commandsDir, "auth.ts"),
       `
       export const Command = {
         __path: "/auth",
@@ -422,12 +452,12 @@ describe("generated code execution", () => {
     ];
 
     const code = generateCommandsTree(commands, {
-      commandsDirectory: "./commands",
+      commandsDirectory: commandsDir,
       generatedFile: join(tempDir, "commandsTree.gen.ts"),
     });
 
-    // Verify all route types are present
-    expect(code).toContain('"/": RootCommand');
+    // "/" is now IndexCommand (not RootCommand) to avoid conflict with RootCommand from __root.ts
+    expect(code).toContain('"/": IndexCommand');
     expect(code).toContain('"/auth": AuthCommand');
     expect(code).toContain('"/list/$projectId": ListProjectIdCommand');
     expect(code).toContain('"/add/$": AddSplatCommand');

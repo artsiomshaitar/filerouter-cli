@@ -1,9 +1,10 @@
 // Core exports
 export { createFileCommand } from "./createFileCommand";
+export { createRootCommand, type RootCommand, type RootCommandConfig } from "./createRootCommand";
 export { createCommandsRouter } from "./router";
 
 // Run command (type-safe command invocation)
-export { runCommand, isRunCommand, type Register, type EmptyParams } from "./runCommand";
+export { runCommand, isRunCommand, type Register, type RegisteredContext, type EmptyParams } from "./runCommand";
 
 // Error types
 export {
@@ -54,6 +55,9 @@ export { createParseRoute, type RouteTable } from "./parseRoute";
 export type {
   // Core types
   FileCommand,
+  FileCommandsByPath,
+  FileCommandUpdateOptions,
+  AnyCommand,
   CommandConfig,
   RouterConfig,
   ParsedRoute,

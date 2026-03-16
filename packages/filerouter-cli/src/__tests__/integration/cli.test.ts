@@ -24,6 +24,13 @@ describe("CLI Integration", () => {
     commandsDir = join(tempDir, "commands");
     genFile = join(tempDir, "commandsTree.gen.ts");
     await mkdir(commandsDir, { recursive: true });
+    
+    // Create required __root.ts file (following TanStack Router's naming convention)
+    await writeFile(
+      join(commandsDir, "__root.ts"),
+      `import { createRootCommand } from "filerouter-cli";
+export const RootCommand = createRootCommand()({ description: "Test CLI" });`
+    );
   });
 
   afterEach(async () => {
@@ -42,7 +49,7 @@ describe("CLI Integration", () => {
   async function generateAndImport() {
     const { commands } = await scanCommands(commandsDir);
     const code = generateCommandsTree(commands, {
-      commandsDirectory: "./commands",
+      commandsDirectory: commandsDir,
       generatedFile: genFile,
     });
     await writeFile(genFile, code);
@@ -90,7 +97,7 @@ describe("CLI Integration", () => {
 
       const { commands } = await scanCommands(commandsDir);
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 
@@ -139,7 +146,7 @@ describe("CLI Integration", () => {
 
       const { commands } = await scanCommands(commandsDir);
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 
@@ -188,7 +195,7 @@ describe("CLI Integration", () => {
 
       const { commands } = await scanCommands(commandsDir);
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 
@@ -265,7 +272,7 @@ describe("CLI Integration", () => {
 
       const { commands } = await scanCommands(commandsDir);
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 
@@ -348,12 +355,13 @@ describe("CLI Integration", () => {
 
       // Generate code and verify it includes all types
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 
       // Verify all route types in generated code
-      expect(code).toContain('"/": RootCommand');
+      // "/" is IndexCommand (not RootCommand) to avoid naming conflict with RootCommand from __root.ts
+      expect(code).toContain('"/": IndexCommand');
       expect(code).toContain('"/auth": AuthCommand');
       expect(code).toContain('"/users/$userId": UsersUserIdCommand');
       expect(code).toContain('"/install/$": InstallSplatCommand');
@@ -399,7 +407,7 @@ describe("CLI Integration", () => {
 
       const { commands } = await scanCommands(commandsDir);
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 
@@ -529,7 +537,7 @@ describe("CLI Integration", () => {
 
       const { commands } = await scanCommands(commandsDir);
       const code = generateCommandsTree(commands, {
-        commandsDirectory: "./commands",
+        commandsDirectory: commandsDir,
         generatedFile: genFile,
       });
 

@@ -1,9 +1,13 @@
 import { router, parseRoute } from "./commandsTree";
 import { ParseError, CommandNotFoundError } from "filerouter-cli";
 
+// Strip global flags (--verbose, -v) before passing to command parser
+const globalFlags = ["--verbose", "-v"];
+const argv = process.argv.filter((arg) => !globalFlags.includes(arg));
+
 async function main() {
   try {
-    const route = parseRoute(process.argv);
+    const route = parseRoute(argv);
     await router.run(route);
   } catch (error) {
     if (error instanceof ParseError) {

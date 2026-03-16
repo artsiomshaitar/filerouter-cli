@@ -3,9 +3,9 @@ import { createFileCommand, runCommand } from "filerouter-cli";
 // my-cli
 
 export const Command = createFileCommand("/")({
-  description: "Root command - runs list command",
-  handler: async () => {
-    // Type-safe runCommand with required params
-    return runCommand("/list/$projectId", { params: { projectId: "default" } });
+  description: "Root command - shows help",
+  handler: async ({ context }) => {
+    context.logger.debug("Running root command");
+    return "Run with --help to see available commands";
   },
 });

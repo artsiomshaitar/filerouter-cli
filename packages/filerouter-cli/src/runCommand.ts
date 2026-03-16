@@ -5,11 +5,26 @@ import { RunCommandError } from "./errors";
  * The generated commandsTree.gen.ts will extend this with actual types
  */
 export interface Register {
-  // Will be extended by generated code:
+  // Will be extended by user code (in router.ts) with:
+  // router: typeof router
+  //
+  // And by generated code (in commandsTree.gen.ts) with:
   // commandPath: "/path1" | "/path2" | ...
   // commandArgs: { "/path1": {...}, "/path2": {...}, ... }
   // commandParams: { "/path1": {...}, "/path2": {...}, ... }
 }
+
+/**
+ * Get registered router type, or fallback to any
+ */
+export type RegisteredRouter = Register extends { router: infer R } ? R : any;
+
+/**
+ * Get registered context type from the router, or fallback to object
+ */
+export type RegisteredContext = RegisteredRouter extends { __context?: infer C }
+  ? C
+  : object;
 
 /**
  * Get registered command path type, or fallback to string

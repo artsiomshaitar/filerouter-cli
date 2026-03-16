@@ -18,7 +18,7 @@ export interface ExecuteCommandOptions {
 /**
  * Execute a command with all its middleware and handler
  */
-export async function executeCommand<TContext extends Record<string, unknown>>(
+export async function executeCommand<TContext extends object>(
   command: FileCommand<any, any, any, any>,
   route: ParsedRoute,
   userContext: TContext,
@@ -113,7 +113,7 @@ export function findLayoutChain(
  * Layouts wrap the child command output via the `outlet` property.
  * Execution order: outermost layout -> innermost layout -> command
  */
-export async function executeWithLayouts<TContext extends Record<string, unknown>>(
+export async function executeWithLayouts<TContext extends object>(
   command: FileCommand<any, any, any, any>,
   layouts: FileCommand<any, any, any, any>[],
   route: ParsedRoute,
