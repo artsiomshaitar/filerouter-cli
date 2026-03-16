@@ -2,9 +2,6 @@ import * as path from "path";
 import type { ScannedCommand, GeneratorConfig } from "./types";
 import { routePathToVarName, routePathToCliCommand } from "./scanner";
 
-// Note: These are used at runtime by the generated code
-// The generated code imports parseRawArgs and extractBooleanFlags from filerouter-cli
-
 /**
  * Generate the commandsTree.gen.ts file content
  */
@@ -20,8 +17,8 @@ export function generateCommandsTree(
   lines.push("");
 
   // Imports
-  lines.push("import { ParseError, parseRawArgs, extractBooleanFlags, registerCommands } from 'filerouter-cli';");
-  lines.push("import type { ParsedRoute, EmptyParams } from 'filerouter-cli';");
+  lines.push("import { createParseRoute, registerCommands } from 'filerouter-cli';");
+  lines.push("import type { RouteTable, EmptyParams } from 'filerouter-cli';");
   lines.push("");
 
   // Command imports
@@ -51,11 +48,8 @@ export function generateCommandsTree(
   lines.push("export type CommandPath = keyof typeof commandsTree;");
   lines.push("");
 
-  // Generate parseRoute function
-  lines.push(generateParseRoute(commands));
-
-  // Generate commandInfo function
-  lines.push(generateCommandInfo(commands, config));
+  // Generate route table data and parseRoute
+  lines.push(generateRouteTable(commands));
 
   // Generate Register declaration for type-safe runCommand
   lines.push(generateRegisterDeclaration(commands));
@@ -85,298 +79,83 @@ function getImportPath(filePath: string, config: GeneratorConfig): string {
 }
 
 /**
- * Generate the parseRoute function
+ * Generate the route table data and parseRoute function
  * 
- * Uses a two-pass approach:
- * 1. First pass: Quick parse to identify the command (ignore boolean flag ambiguity)
- * 2. Second pass: Re-parse with schema knowledge for accurate flag parsing
+ * The route table contains all the data needed for route matching,
+ * while the actual matching logic lives in the library (createParseRoute).
  */
-function generateParseRoute(
-  commands: ScannedCommand[]
-): string {
+function generateRouteTable(commands: ScannedCommand[]): string {
   const lines: string[] = [];
 
-  lines.push("/**");
-  lines.push(" * Parse process.argv into a ParsedRoute");
-  lines.push(" * @throws ParseError if the command is not found or arguments are invalid");
-  lines.push(" */");
-  lines.push("export function parseRoute(argv: string[]): ParsedRoute {");
-  lines.push("  // Remove 'bun'/'node' and script path");
-  lines.push("  const args = argv.slice(2);");
-  lines.push("");
-  lines.push("  // First pass: Extract positional args to identify the command");
-  lines.push("  // Skip anything that looks like a flag");
-  lines.push("  const positional: string[] = [];");
-  lines.push("  for (const arg of args) {");
-  lines.push("    if (arg === '--') break;");
-  lines.push("    if (!arg.startsWith('-')) {");
-  lines.push("      positional.push(arg);");
-  lines.push("    }");
-  lines.push("  }");
-  lines.push("");
-  lines.push("  // Match route to find the command");
-  lines.push("  const routeInfo = matchRoute(positional);");
-  lines.push("");
-  lines.push("  // Second pass: Re-parse args with schema knowledge");
-  lines.push("  const command = commandsTree[routeInfo.path as keyof typeof commandsTree];");
-  lines.push("  const schema = command?.config?.validateArgs;");
-  lines.push("  const aliases = command?.config?.aliases;");
-  lines.push("  const booleanFlags = extractBooleanFlags(schema, aliases);");
-  lines.push("");
-  lines.push("  // Parse with boolean flag awareness");
-  lines.push("  const { flags } = parseRawArgs(args, { booleanFlags });");
-  lines.push("");
-  lines.push("  return {");
-  lines.push("    path: routeInfo.path,");
-  lines.push("    params: routeInfo.params,");
-  lines.push("    args: flags,");
-  lines.push("    rawArgs: args,");
-  lines.push("  };");
-  lines.push("}");
-  lines.push("");
-
-  // Generate matchRoute function (simplified - only matches route, doesn't handle flags)
-  lines.push(generateMatchRoute(commands));
-
-  return lines.join("\n");
-}
-
-/**
- * Generate the matchRoute function
- * Returns only { path, params } - flags are handled separately with schema knowledge
- * 
- * Uses greedy matching: tries longest match first, then shorter prefixes.
- * This allows commands like `add -D typescript` where `add` is the command
- * and `typescript` is an extra positional arg (not part of the route).
- * 
- * Splat routes ($.ts) match LAST and capture remaining positional args.
- */
-function generateMatchRoute(
-  commands: ScannedCommand[]
-): string {
-  const lines: string[] = [];
-
-  lines.push("interface RouteMatch {");
-  lines.push("  path: string;");
-  lines.push("  params: Record<string, string | string[]>;");
-  lines.push("}");
-  lines.push("");
-  lines.push("function matchRoute(positional: string[]): RouteMatch {");
-
-  // Separate routes by type - exclude splat routes from regular matching
+  // Separate routes by type
   const staticRoutes = commands.filter((c) => !c.hasParams && !c.isPathless && !c.isLayout && !c.isSplat);
   const dynamicRoutes = commands.filter((c) => c.hasParams && !c.isLayout && !c.isSplat);
   const splatRoutes = commands.filter((c) => c.isSplat);
-  
+
   // Children of pathless layouts are accessible
   const pathlessChildren = commands.filter((c) => c.isPathless && !c.isLayout && !c.hasParams && !c.isSplat);
   const pathlessChildrenDynamic = commands.filter((c) => c.isPathless && !c.isLayout && c.hasParams && !c.isSplat);
 
-  lines.push("  const numPositional = positional.length;");
-  lines.push("");
-
-  // Handle root command
-  lines.push("  // Root command");
-  lines.push("  if (numPositional === 0) {");
-  lines.push("    return { path: '/', params: {} };");
-  lines.push("  }");
-  lines.push("");
-
-  // Build route info for matching
   const allStaticRoutes = [...staticRoutes, ...pathlessChildren];
   const allDynamicRoutes = [...dynamicRoutes, ...pathlessChildrenDynamic];
 
-  // Generate static routes map
-  if (allStaticRoutes.length > 0) {
-    lines.push("  // Static routes map: CLI path -> route path");
-    lines.push("  const staticRoutes: Record<string, string> = {");
-    for (const route of allStaticRoutes) {
-      if (route.routePath === "/") continue;
-      const cliCmd = routePathToCliCommand(route.routePath);
-      if (cliCmd) {
-        // Store with segment count for matching
-        lines.push(`    "${cliCmd.replace(/ /g, "/")}": "${route.routePath}",`);
-      }
-    }
-    lines.push("  };");
-    lines.push("");
-  }
-
-  // Generate dynamic routes with their patterns
-  if (allDynamicRoutes.length > 0) {
-    lines.push("  // Dynamic route patterns");
-    lines.push("  const dynamicRoutes: Array<{");
-    lines.push("    segments: string[];");
-    lines.push("    path: string;");
-    lines.push("    paramIndices: Record<string, number>;");
-    lines.push("  }> = [");
-    
-    for (const route of allDynamicRoutes) {
-      const segments = route.segments.filter((s) => !s.startsWith("_"));
-      const paramIndices: string[] = [];
-      
-      for (let i = 0; i < segments.length; i++) {
-        const seg = segments[i];
-        if (seg.startsWith("$")) {
-          paramIndices.push(`${seg.slice(1)}: ${i}`);
-        }
-      }
-      
-      lines.push(`    {`);
-      lines.push(`      segments: [${segments.map(s => `"${s}"`).join(", ")}],`);
-      lines.push(`      path: "${route.routePath}",`);
-      lines.push(`      paramIndices: { ${paramIndices.join(", ")} },`);
-      lines.push(`    },`);
-    }
-    lines.push("  ];");
-    lines.push("");
-  }
-
-  // Matching logic: try from longest to shortest prefix
-  lines.push("  // Try matching from longest prefix to shortest");
-  lines.push("  for (let len = numPositional; len >= 1; len--) {");
-  lines.push("    const prefix = positional.slice(0, len);");
-  lines.push("    const prefixPath = '/' + prefix.join('/');");
-  lines.push("    const normalizedPrefix = prefixPath.toLowerCase();");
-  lines.push("");
-  
-  // Check static routes first
-  if (allStaticRoutes.length > 0) {
-    lines.push("    // Check static routes");
-    lines.push("    for (const [cliPath, routePath] of Object.entries(staticRoutes)) {");
-    lines.push("      if (normalizedPrefix === '/' + cliPath.toLowerCase()) {");
-    lines.push("        return { path: routePath, params: {} };");
-    lines.push("      }");
-    lines.push("    }");
-    lines.push("");
-  }
-
-  // Check dynamic routes
-  if (allDynamicRoutes.length > 0) {
-    lines.push("    // Check dynamic routes");
-    lines.push("    for (const route of dynamicRoutes) {");
-    lines.push("      if (route.segments.length !== len) continue;");
-    lines.push("");
-    lines.push("      let match = true;");
-    lines.push("      const params: Record<string, string> = {};");
-    lines.push("");
-    lines.push("      for (let i = 0; i < len; i++) {");
-    lines.push("        const seg = route.segments[i];");
-    lines.push("        if (seg.startsWith('$')) {");
-    lines.push("          // Dynamic segment - capture param");
-    lines.push("          params[seg.slice(1)] = prefix[i];");
-    lines.push("        } else if (seg.toLowerCase() !== prefix[i].toLowerCase()) {");
-    lines.push("          // Static segment - must match");
-    lines.push("          match = false;");
-    lines.push("          break;");
-    lines.push("        }");
-    lines.push("      }");
-    lines.push("");
-    lines.push("      if (match) {");
-    lines.push("        return { path: route.path, params };");
-    lines.push("      }");
-    lines.push("    }");
-  }
-
-  lines.push("  }");
-  lines.push("");
-
-  // Generate splat route matching (lowest priority - match after static/dynamic routes)
-  if (splatRoutes.length > 0) {
-    lines.push("  // Splat routes (lowest priority) - capture remaining args");
-    lines.push("  const splatRoutes: Array<{");
-    lines.push("    parentSegments: string[];");
-    lines.push("    path: string;");
-    lines.push("  }> = [");
-    
-    for (const route of splatRoutes) {
-      // Get parent segments (everything before the $)
-      const parentSegments = route.segments.filter(s => s !== "$" && !s.startsWith("_"));
-      lines.push(`    { parentSegments: [${parentSegments.map(s => `"${s}"`).join(", ")}], path: "${route.routePath}" },`);
-    }
-    lines.push("  ];");
-    lines.push("");
-    
-    // Sort splat routes by parent segment length (longest first for specificity)
-    lines.push("  // Sort splat routes by specificity (longest parent first)");
-    lines.push("  splatRoutes.sort((a, b) => b.parentSegments.length - a.parentSegments.length);");
-    lines.push("");
-    
-    lines.push("  for (const splat of splatRoutes) {");
-    lines.push("    const parentLen = splat.parentSegments.length;");
-    lines.push("");
-    lines.push("    // Check if we have enough positional args for the parent");
-    lines.push("    if (numPositional >= parentLen) {");
-    lines.push("      let parentMatch = true;");
-    lines.push("");
-    lines.push("      // Check parent segments match");
-    lines.push("      for (let i = 0; i < parentLen; i++) {");
-    lines.push("        if (splat.parentSegments[i].toLowerCase() !== positional[i].toLowerCase()) {");
-    lines.push("          parentMatch = false;");
-    lines.push("          break;");
-    lines.push("        }");
-    lines.push("      }");
-    lines.push("");
-    lines.push("      if (parentMatch) {");
-    lines.push("        // Capture remaining positional args as _splat");
-    lines.push("        const splatArgs = positional.slice(parentLen);");
-    lines.push("        return { path: splat.path, params: { _splat: splatArgs } };");
-    lines.push("      }");
-    lines.push("    }");
-    lines.push("  }");
-    lines.push("");
-  }
-
-  // Generate available commands list for error message
+  // Generate available commands list for error messages
   const availableCommands = commands
     .filter((c) => !c.isLayout)
     .map((c) => routePathToCliCommand(c.routePath))
     .filter(Boolean);
 
-  lines.push("  // No match found");
-  lines.push("  throw new ParseError(");
-  lines.push(`    \`Unknown command: \${positional.join(' ')}\`,`);
-  lines.push(`    "Available commands:\\n${availableCommands.map((c) => `  ${c}`).join("\\n")}",`);
-  lines.push("    'UNKNOWN_COMMAND'");
-  lines.push("  );");
-  lines.push("}");
+  lines.push("// Route table data for parseRoute");
+  lines.push("const routeTable: RouteTable = {");
 
-  return lines.join("\n");
-}
+  // Static routes
+  lines.push("  staticRoutes: {");
+  for (const route of allStaticRoutes) {
+    if (route.routePath === "/") continue;
+    const cliCmd = routePathToCliCommand(route.routePath);
+    if (cliCmd) {
+      lines.push(`    "${cliCmd.replace(/ /g, "/")}": "${route.routePath}",`);
+    }
+  }
+  lines.push("  },");
 
-/**
- * Generate the commandInfo function
- */
-function generateCommandInfo(
-  commands: ScannedCommand[],
-  config: GeneratorConfig
-): string {
-  const lines: string[] = [];
+  // Dynamic routes
+  lines.push("  dynamicRoutes: [");
+  for (const route of allDynamicRoutes) {
+    const segments = route.segments.filter((s) => !s.startsWith("_"));
+    const paramIndices: string[] = [];
 
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      if (seg.startsWith("$")) {
+        paramIndices.push(`${seg.slice(1)}: ${i}`);
+      }
+    }
+
+    lines.push(`    { segments: [${segments.map((s) => `"${s}"`).join(", ")}], path: "${route.routePath}", paramIndices: { ${paramIndices.join(", ")} } },`);
+  }
+  lines.push("  ],");
+
+  // Splat routes
+  lines.push("  splatRoutes: [");
+  for (const route of splatRoutes) {
+    const parentSegments = route.segments.filter((s) => s !== "$" && !s.startsWith("_"));
+    lines.push(`    { parentSegments: [${parentSegments.map((s) => `"${s}"`).join(", ")}], path: "${route.routePath}" },`);
+  }
+  lines.push("  ],");
+
+  // Available commands
+  lines.push(`  availableCommands: [${availableCommands.map((c) => `"${c}"`).join(", ")}],`);
+
+  lines.push("};");
   lines.push("");
+
+  // Generate parseRoute using library function
   lines.push("/**");
-  lines.push(" * Get information about a command");
+  lines.push(" * Parse process.argv into a ParsedRoute");
+  lines.push(" * @throws ParseError if the command is not found or arguments are invalid");
   lines.push(" */");
-  lines.push("export function commandInfo(path: CommandPath) {");
-  lines.push("  const cmd = commandsTree[path];");
-  lines.push("  return {");
-  lines.push("    description: cmd.config.description,");
-  lines.push("    usage: () => {");
-  lines.push(`      const cliName = "${config.cliName || "cli"}";`);
-  lines.push("      const segments = path.split('/').filter(Boolean);");
-  lines.push("      const parts: string[] = [cliName];");
-  lines.push("      for (const segment of segments) {");
-  lines.push("        if (segment.startsWith('$')) {");
-  lines.push("          parts.push(`<${segment.slice(1)}>`);");
-  lines.push("        } else if (!segment.startsWith('_')) {");
-  lines.push("          parts.push(segment);");
-  lines.push("        }");
-  lines.push("      }");
-  lines.push("      // TODO: Add args from schema");
-  lines.push("      return parts.join(' ');");
-  lines.push("    },");
-  lines.push("  };");
-  lines.push("}");
+  lines.push("export const parseRoute = createParseRoute(commandsTree, routeTable);");
 
   return lines.join("\n");
 }

@@ -31,8 +31,8 @@ describe("generateCommandsTree", () => {
     it("imports from filerouter-cli", () => {
       const code = generateCommandsTree([], defaultConfig);
 
-      expect(code).toContain("import { ParseError, parseRawArgs, extractBooleanFlags, registerCommands } from 'filerouter-cli'");
-      expect(code).toContain("import type { ParsedRoute, EmptyParams } from 'filerouter-cli'");
+      expect(code).toContain("import { createParseRoute, registerCommands } from 'filerouter-cli'");
+      expect(code).toContain("import type { RouteTable, EmptyParams } from 'filerouter-cli'");
     });
 
     it("imports commands with correct variable names", () => {
@@ -152,61 +152,23 @@ describe("generateCommandsTree", () => {
     });
   });
 
-  describe("parseRoute function", () => {
-    it("generates parseRoute function", () => {
+  describe("parseRoute generation", () => {
+    it("generates parseRoute as const using createParseRoute", () => {
       const code = generateCommandsTree([], defaultConfig);
 
-      expect(code).toContain("export function parseRoute(argv: string[]): ParsedRoute {");
+      expect(code).toContain("export const parseRoute = createParseRoute(commandsTree, routeTable)");
     });
 
-    it("includes two-pass parsing logic", () => {
-      const commands: ScannedCommand[] = [
-        {
-          filePath: "auth.ts",
-          routePath: "/auth",
-          isLayout: false,
-          isPathless: false,
-          hasParams: false,
-          isSplat: false,
-          segments: ["auth"],
-          paramNames: [],
-        },
-      ];
+    it("includes JSDoc comment", () => {
+      const code = generateCommandsTree([], defaultConfig);
 
-      const code = generateCommandsTree(commands, defaultConfig);
-
-      // First pass: extract positional args
-      expect(code).toContain("First pass");
-      expect(code).toContain("positional");
-
-      // Second pass: re-parse with schema knowledge
-      expect(code).toContain("Second pass");
-      expect(code).toContain("extractBooleanFlags");
-    });
-
-    it("includes boolean flag awareness", () => {
-      const commands: ScannedCommand[] = [
-        {
-          filePath: "add.ts",
-          routePath: "/add",
-          isLayout: false,
-          isPathless: false,
-          hasParams: false,
-          isSplat: false,
-          segments: ["add"],
-          paramNames: [],
-        },
-      ];
-
-      const code = generateCommandsTree(commands, defaultConfig);
-
-      expect(code).toContain("booleanFlags");
-      expect(code).toContain("parseRawArgs(args, { booleanFlags })");
+      expect(code).toContain("Parse process.argv into a ParsedRoute");
+      expect(code).toContain("@throws ParseError");
     });
   });
 
-  describe("matchRoute function", () => {
-    it("generates matchRoute function", () => {
+  describe("routeTable generation", () => {
+    it("generates routeTable constant with correct type", () => {
       const commands: ScannedCommand[] = [
         {
           filePath: "auth.ts",
@@ -222,10 +184,10 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain("function matchRoute(positional: string[]): RouteMatch {");
+      expect(code).toContain("const routeTable: RouteTable = {");
     });
 
-    it("handles static routes", () => {
+    it("generates staticRoutes in routeTable", () => {
       const commands: ScannedCommand[] = [
         {
           filePath: "auth.ts",
@@ -251,12 +213,12 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain("staticRoutes");
+      expect(code).toContain("staticRoutes: {");
       expect(code).toContain('"auth": "/auth"');
       expect(code).toContain('"list": "/list"');
     });
 
-    it("handles dynamic routes", () => {
+    it("generates dynamicRoutes in routeTable", () => {
       const commands: ScannedCommand[] = [
         {
           filePath: "list/$projectId.ts",
@@ -272,12 +234,12 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain("dynamicRoutes");
+      expect(code).toContain("dynamicRoutes: [");
       expect(code).toContain('segments: ["list", "$projectId"]');
       expect(code).toContain('path: "/list/$projectId"');
     });
 
-    it("handles splat routes (lowest priority)", () => {
+    it("generates splatRoutes in routeTable", () => {
       const commands: ScannedCommand[] = [
         {
           filePath: "add/$.ts",
@@ -293,33 +255,12 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain("splatRoutes");
+      expect(code).toContain("splatRoutes: [");
       expect(code).toContain('parentSegments: ["add"]');
       expect(code).toContain('path: "/add/$"');
-      expect(code).toContain("_splat");
     });
 
-    it("handles root command", () => {
-      const commands: ScannedCommand[] = [
-        {
-          filePath: "index.ts",
-          routePath: "/",
-          isLayout: false,
-          isPathless: false,
-          hasParams: false,
-          isSplat: false,
-          segments: [],
-          paramNames: [],
-        },
-      ];
-
-      const code = generateCommandsTree(commands, defaultConfig);
-
-      expect(code).toContain("if (numPositional === 0)");
-      expect(code).toContain("return { path: '/', params: {} }");
-    });
-
-    it("includes case-insensitive matching", () => {
+    it("generates availableCommands in routeTable", () => {
       const commands: ScannedCommand[] = [
         {
           filePath: "auth.ts",
@@ -335,72 +276,8 @@ describe("generateCommandsTree", () => {
 
       const code = generateCommandsTree(commands, defaultConfig);
 
-      expect(code).toContain(".toLowerCase()");
-    });
-
-    it("throws ParseError for unknown command", () => {
-      const commands: ScannedCommand[] = [
-        {
-          filePath: "auth.ts",
-          routePath: "/auth",
-          isLayout: false,
-          isPathless: false,
-          hasParams: false,
-          isSplat: false,
-          segments: ["auth"],
-          paramNames: [],
-        },
-      ];
-
-      const code = generateCommandsTree(commands, defaultConfig);
-
-      expect(code).toContain("throw new ParseError");
-      expect(code).toContain("Unknown command");
-      expect(code).toContain("UNKNOWN_COMMAND");
-    });
-  });
-
-  describe("commandInfo function", () => {
-    it("generates commandInfo function", () => {
-      const code = generateCommandsTree([], defaultConfig);
-
-      expect(code).toContain("export function commandInfo(path: CommandPath)");
-    });
-
-    it("returns description and usage", () => {
-      const code = generateCommandsTree([], defaultConfig);
-
-      expect(code).toContain("description: cmd.config.description");
-      expect(code).toContain("usage: () => {");
-    });
-
-    it("uses configured cliName", () => {
-      const config = { ...defaultConfig, cliName: "my-awesome-cli" };
-      const code = generateCommandsTree([], config);
-
-      expect(code).toContain('"my-awesome-cli"');
-    });
-  });
-
-  describe("greedy matching", () => {
-    it("implements longest match first strategy", () => {
-      const commands: ScannedCommand[] = [
-        {
-          filePath: "auth.ts",
-          routePath: "/auth",
-          isLayout: false,
-          isPathless: false,
-          hasParams: false,
-          isSplat: false,
-          segments: ["auth"],
-          paramNames: [],
-        },
-      ];
-
-      const code = generateCommandsTree(commands, defaultConfig);
-
-      // Should try longest prefix first
-      expect(code).toContain("for (let len = numPositional; len >= 1; len--)");
+      expect(code).toContain("availableCommands: [");
+      expect(code).toContain('"auth"');
     });
   });
 
@@ -423,6 +300,15 @@ describe("generateCommandsTree", () => {
 
       // Should include in static routes map with CLI path (without _prefix)
       expect(code).toContain('"protected"');
+    });
+  });
+
+  describe("registerCommands call", () => {
+    it("calls registerCommands with cliName", () => {
+      const config = { ...defaultConfig, cliName: "my-awesome-cli" };
+      const code = generateCommandsTree([], config);
+
+      expect(code).toContain('registerCommands(commandsTree, "my-awesome-cli")');
     });
   });
 });
@@ -480,7 +366,7 @@ describe("generated code execution", () => {
     // We can verify by attempting to parse it
     const content = await readFile(join(tempDir, "commandsTree.gen.ts"), "utf-8");
     expect(content).toContain("export const commandsTree");
-    expect(content).toContain("export function parseRoute");
+    expect(content).toContain("export const parseRoute");
   });
 
   it("generates code that handles multiple route types", async () => {
@@ -550,9 +436,10 @@ describe("generated code execution", () => {
     expect(code).toContain('"/add/$": AddSplatCommand');
     expect(code).toContain('"/_auth": LayoutAuthCommand');
 
-    // Verify matching logic includes all types
-    expect(code).toContain("staticRoutes");
-    expect(code).toContain("dynamicRoutes");
-    expect(code).toContain("splatRoutes");
+    // Verify route table includes all types
+    expect(code).toContain("staticRoutes: {");
+    expect(code).toContain("dynamicRoutes: [");
+    expect(code).toContain("splatRoutes: [");
+    expect(code).toContain("availableCommands: [");
   });
 });

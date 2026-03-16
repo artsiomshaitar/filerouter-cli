@@ -97,8 +97,8 @@ describe("CLI Integration", () => {
       });
 
       expect(code).toContain('"/auth": AuthCommand');
-      expect(code).toContain("export function parseRoute");
-      expect(code).toContain('cliName = "my-cli"');
+      expect(code).toContain("export const parseRoute = createParseRoute");
+      expect(code).toContain('registerCommands(commandsTree, "my-cli")');
     });
   });
 
@@ -541,11 +541,12 @@ describe("CLI Integration", () => {
         cliName: "my-awesome-cli",
       });
 
-      // Help-related content
-      expect(code).toContain("my-awesome-cli");
-      expect(code).toContain("Available commands:");
-      expect(code).toContain("auth");
-      expect(code).toContain("list");
+      // CLI name is used in registerCommands call
+      expect(code).toContain('registerCommands(commandsTree, "my-awesome-cli")');
+      // Available commands are in the routeTable
+      expect(code).toContain("availableCommands:");
+      expect(code).toContain('"auth"');
+      expect(code).toContain('"list"');
     });
   });
 });

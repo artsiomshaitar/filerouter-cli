@@ -47,6 +47,9 @@ export {
 // Command info (type-safe command introspection)
 export { commandInfo, registerCommands } from "./commandInfo";
 
+// Route parsing (used by generated code)
+export { createParseRoute, type RouteTable } from "./parseRoute";
+
 // Types
 export type {
   // Core types
