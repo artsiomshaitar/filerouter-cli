@@ -7,7 +7,8 @@ export type ParseErrorCode =
   | "INVALID_ARG"
   | "MISSING_PARAM"
   | "INVALID_PARAM"
-  | "VALIDATION_ERROR";
+  | "VALIDATION_ERROR"
+  | "UNKNOWN_FLAG";
 
 /**
  * Error thrown when parsing command-line arguments fails

@@ -5,6 +5,7 @@ import { Output, OutputEntry, OutputEntryType } from "./Output.js";
 import { Prompt } from "./Prompt.js";
 import { startWatcher, getInitialCommandCount } from "../watcher.js";
 import { getVersion } from "../version.js";
+import { ParseError, CommandNotFoundError } from "../../errors.js";
 import * as path from "path";
 
 const VERSION = getVersion();
@@ -116,8 +117,16 @@ export function DevMode({ commandsDirectory, generatedFile, cliName = "dev" }: D
         // void result = no output
       } catch (error) {
         const err = error as Error;
-        const stack = err.stack || err.message;
-        addEntry("error", stack);
+
+        // For known CLI errors, show clean message + help (no stack trace)
+        if (err instanceof ParseError || err instanceof CommandNotFoundError) {
+          const helpText = err.help ? `\n${err.help}` : "";
+          addEntry("error", `${err.message}${helpText}`);
+        } else {
+          // For unexpected errors, show stack trace for debugging
+          const stack = err.stack || err.message;
+          addEntry("error", stack);
+        }
       } finally {
         setIsExecuting(false);
       }

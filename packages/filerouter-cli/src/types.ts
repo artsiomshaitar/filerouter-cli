@@ -131,6 +131,8 @@ export interface RouterConfig<TContext = Record<string, unknown>> {
   defaultOnError?: (error: Error) => void;
   /** CLI name for help output (default: "cli") */
   cliName?: string;
+  /** Whether to reject unknown flags (default: true) */
+  strictFlags?: boolean;
 }
 
 /**

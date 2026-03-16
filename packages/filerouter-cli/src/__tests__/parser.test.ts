@@ -6,6 +6,9 @@ import {
   validateArgs,
   validateParams,
   expandAliases,
+  extractValidFlags,
+  suggestSimilarFlags,
+  formatUnknownFlagsError,
 } from "../parser";
 import { ParseError } from "../errors";
 
@@ -171,8 +174,8 @@ describe("parseRawArgs", () => {
     });
 
     it("handles only flags", () => {
-      const result = parseRawArgs(["--a", "1", "--b", "2"]);
-      expect(result.flags).toEqual({ a: 1, b: 2 });
+      const result = parseRawArgs(["--alpha", "1", "--beta", "2"]);
+      expect(result.flags).toEqual({ alpha: 1, beta: 2 });
       expect(result.positional).toEqual([]);
     });
 
@@ -195,6 +198,52 @@ describe("parseRawArgs", () => {
     it("handles single dash as positional", () => {
       const result = parseRawArgs(["-"]);
       expect(result.positional).toEqual(["-"]);
+    });
+  });
+
+  describe("dash style validation", () => {
+    it("throws error for --x (double dash with single char)", () => {
+      expect(() => parseRawArgs(["--f"])).toThrow(ParseError);
+      expect(() => parseRawArgs(["--f"])).toThrow("Invalid flag format: --f");
+    });
+
+    it("suggests single dash format in error message", () => {
+      try {
+        parseRawArgs(["--f"]);
+      } catch (e) {
+        expect(e).toBeInstanceOf(ParseError);
+        expect((e as ParseError).help).toContain("-f");
+      }
+    });
+
+    it("throws error for --x=value (double dash with single char and value)", () => {
+      expect(() => parseRawArgs(["--f=test"])).toThrow(ParseError);
+      expect(() => parseRawArgs(["--f=test"])).toThrow("Invalid flag format");
+    });
+
+    it("allows -f (single dash with single char)", () => {
+      const result = parseRawArgs(["-f", "value"]);
+      expect(result.flags).toEqual({ f: "value" });
+    });
+
+    it("allows --flag (double dash with multi char)", () => {
+      const result = parseRawArgs(["--flag", "value"]);
+      expect(result.flags).toEqual({ flag: "value" });
+    });
+
+    it("allows -flag (single dash with multi char)", () => {
+      // Some CLIs allow this - we're lenient here
+      const result = parseRawArgs(["-flag", "value"]);
+      expect(result.flags).toEqual({ flag: "value" });
+    });
+
+    it("throws for --f in middle of args", () => {
+      expect(() => parseRawArgs(["--name", "test", "--f"])).toThrow(ParseError);
+    });
+
+    it("throws for --f with boolean flags set", () => {
+      const booleanFlags = new Set(["f"]);
+      expect(() => parseRawArgs(["--f"], { booleanFlags })).toThrow(ParseError);
     });
   });
 });
@@ -442,5 +491,243 @@ describe("expandAliases", () => {
     const aliases = { verbose: ["v"] };
     const result = expandAliases(flags, aliases);
     expect(result).toEqual({ verbose: true, name: "John" });
+  });
+});
+
+describe("extractValidFlags", () => {
+  it("extracts flags from schema", () => {
+    const schema = z.object({
+      verbose: z.boolean(),
+      name: z.string(),
+    });
+    const flags = extractValidFlags(schema);
+    expect(flags.has("verbose")).toBe(true);
+    expect(flags.has("name")).toBe(true);
+    expect(flags.get("verbose")?.canonical).toBe("verbose");
+  });
+
+  it("includes aliases", () => {
+    const schema = z.object({
+      verbose: z.boolean(),
+    });
+    const aliases = { verbose: ["v", "V"] };
+    const flags = extractValidFlags(schema, aliases);
+    expect(flags.has("verbose")).toBe(true);
+    expect(flags.has("v")).toBe(true);
+    expect(flags.has("V")).toBe(true);
+    // All point to the same canonical name
+    expect(flags.get("v")?.canonical).toBe("verbose");
+    expect(flags.get("V")?.canonical).toBe("verbose");
+  });
+
+  it("returns empty map for undefined schema", () => {
+    const flags = extractValidFlags(undefined);
+    expect(flags.size).toBe(0);
+  });
+
+  it("returns empty map for schema without shape", () => {
+    const schema = z.string();
+    const flags = extractValidFlags(schema);
+    expect(flags.size).toBe(0);
+  });
+});
+
+describe("suggestSimilarFlags", () => {
+  const schema = z.object({
+    filter: z.string().optional(),
+    verbose: z.boolean().optional(),
+    output: z.string().optional(),
+  });
+  const aliases = { filter: ["f"], verbose: ["v"] };
+
+  it("suggests prefix matches", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    // "fil" is a prefix of "filter"
+    const result = suggestSimilarFlags("fil", validFlags);
+    expect(result.suggestions.length).toBe(1);
+    expect(result.suggestions[0].canonical).toBe("filter");
+  });
+
+  it("suggests single-char prefix matches", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    // "f" is a prefix of "filter"
+    const result = suggestSimilarFlags("f", validFlags);
+    expect(result.suggestions.length).toBe(1);
+    expect(result.suggestions[0].canonical).toBe("filter");
+  });
+
+  it("suggests typo corrections via edit distance", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    // "fitler" is a typo of "filter" (transposition)
+    const result = suggestSimilarFlags("fitler", validFlags);
+    expect(result.suggestions.length).toBe(1);
+    expect(result.suggestions[0].canonical).toBe("filter");
+  });
+
+  it("suggests verboes -> verbose (typo)", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    const result = suggestSimilarFlags("verboes", validFlags);
+    expect(result.suggestions.length).toBe(1);
+    expect(result.suggestions[0].canonical).toBe("verbose");
+  });
+
+  it("returns no suggestions for completely different flags", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    // "xyz" is completely different
+    const result = suggestSimilarFlags("xyz", validFlags);
+    expect(result.suggestions.length).toBe(0);
+  });
+
+  it("returns no suggestions for 'fu' (not a prefix of filter)", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    // "fu" is not a prefix of any flag and too different
+    const result = suggestSimilarFlags("fu", validFlags);
+    expect(result.suggestions.length).toBe(0);
+  });
+
+  it("includes aliases info in suggestions", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    
+    const result = suggestSimilarFlags("fil", validFlags);
+    expect(result.suggestions[0].aliases).toContain("f");
+  });
+});
+
+describe("formatUnknownFlagsError", () => {
+  const schema = z.object({
+    filter: z.string().optional(),
+    verbose: z.boolean().optional(),
+  });
+  const aliases = { filter: ["f"], verbose: ["v"] };
+
+  it("formats error with suggestion for prefix match", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    const { message, help } = formatUnknownFlagsError(["fil"], validFlags);
+    
+    expect(message).toBe("Unknown flag: --fil");
+    expect(help).toContain("Did you mean");
+    expect(help).toContain("--filter");
+  });
+
+  it("formats error with available flags when no suggestions", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    const { message, help } = formatUnknownFlagsError(["xyz"], validFlags);
+    
+    expect(message).toBe("Unknown flag: --xyz");
+    expect(help).toContain("Available flags:");
+    expect(help).toContain("--filter");
+    expect(help).toContain("--verbose");
+  });
+
+  it("handles multiple unknown flags", () => {
+    const validFlags = extractValidFlags(schema, aliases);
+    const { message, help } = formatUnknownFlagsError(["xyz", "abc"], validFlags);
+    
+    expect(message).toBe("Unknown flags: --xyz, --abc");
+  });
+});
+
+describe("validateArgs with strictFlags", () => {
+  it("throws ParseError for unknown flags when strictFlags is true (default)", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+    });
+    const aliases = { filter: ["f"] };
+    
+    expect(() => validateArgs({ unknown: "value" }, schema, aliases)).toThrow(ParseError);
+    
+    try {
+      validateArgs({ unknown: "value" }, schema, aliases);
+    } catch (e) {
+      expect(e).toBeInstanceOf(ParseError);
+      expect((e as ParseError).code).toBe("UNKNOWN_FLAG");
+      expect((e as ParseError).message).toContain("Unknown flag");
+      expect((e as ParseError).message).toContain("unknown");
+    }
+  });
+
+  it("suggests similar flags in error message", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+    });
+    const aliases = { filter: ["f"] };
+    
+    try {
+      validateArgs({ fil: "value" }, schema, aliases);
+    } catch (e) {
+      expect(e).toBeInstanceOf(ParseError);
+      expect((e as ParseError).help).toContain("Did you mean");
+      expect((e as ParseError).help).toContain("--filter");
+    }
+  });
+
+  it("does not throw for unknown flags when strictFlags is false", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+    });
+    
+    // Should not throw - unknown flags are allowed
+    const result = validateArgs({ unknown: "value" }, schema, undefined, { strictFlags: false });
+    expect(result).toEqual({}); // Zod strips unknown keys by default
+  });
+
+  it("accepts valid flags", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+    });
+    const aliases = { filter: ["f"] };
+    
+    // Should not throw
+    const result = validateArgs({ filter: "test" }, schema, aliases);
+    expect(result).toEqual({ filter: "test" });
+  });
+
+  it("accepts valid aliases", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+    });
+    const aliases = { filter: ["f"] };
+    
+    // Should not throw - "f" is a valid alias
+    const result = validateArgs({ f: "test" }, schema, aliases);
+    expect(result).toEqual({ filter: "test" });
+  });
+
+  it("shows available flags when no similar flags found", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+      verbose: z.boolean().optional(),
+    });
+    const aliases = { filter: ["f"], verbose: ["v"] };
+    
+    try {
+      validateArgs({ xyz: "value" }, schema, aliases);
+    } catch (e) {
+      expect(e).toBeInstanceOf(ParseError);
+      expect((e as ParseError).help).toContain("Available flags:");
+      expect((e as ParseError).help).toContain("--filter");
+      expect((e as ParseError).help).toContain("--verbose");
+    }
+  });
+
+  it("handles multiple unknown flags", () => {
+    const schema = z.object({
+      filter: z.string().optional(),
+    });
+    
+    try {
+      validateArgs({ foo: "a", bar: "b" }, schema);
+    } catch (e) {
+      expect(e).toBeInstanceOf(ParseError);
+      expect((e as ParseError).message).toContain("Unknown flags:");
+      expect((e as ParseError).message).toContain("foo");
+      expect((e as ParseError).message).toContain("bar");
+    }
   });
 });

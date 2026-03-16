@@ -4,8 +4,16 @@ import type {
   ParsedRoute,
 } from "./types";
 import { getShell } from "./shell";
-import { validateArgs, validateParams } from "./parser";
+import { validateArgs, validateParams, type ValidateArgsOptions } from "./parser";
 import { executeMiddleware } from "./middleware";
+
+/**
+ * Options for command execution
+ */
+export interface ExecuteCommandOptions {
+  /** Whether to reject unknown flags (default: true) */
+  strictFlags?: boolean;
+}
 
 /**
  * Execute a command with all its middleware and handler
@@ -14,9 +22,11 @@ export async function executeCommand<TContext extends Record<string, unknown>>(
   command: FileCommand<any, any, any, any>,
   route: ParsedRoute,
   userContext: TContext,
-  outlet?: Promise<string | number | void>
+  outlet?: Promise<string | number | void>,
+  options?: ExecuteCommandOptions
 ): Promise<string | number | void> {
   const { config } = command;
+  const { strictFlags = true } = options ?? {};
 
   // Validate and parse args
   let validatedArgs = route.args;
@@ -24,7 +34,8 @@ export async function executeCommand<TContext extends Record<string, unknown>>(
     validatedArgs = validateArgs(
       route.args as Record<string, unknown>,
       config.validateArgs,
-      config.aliases
+      config.aliases,
+      { strictFlags }
     );
   }
 
@@ -106,11 +117,12 @@ export async function executeWithLayouts<TContext extends Record<string, unknown
   command: FileCommand<any, any, any, any>,
   layouts: FileCommand<any, any, any, any>[],
   route: ParsedRoute,
-  userContext: TContext
+  userContext: TContext,
+  options?: ExecuteCommandOptions
 ): Promise<string | number | void> {
   if (layouts.length === 0) {
     // No layouts, just execute the command
-    return executeCommand(command, route, userContext);
+    return executeCommand(command, route, userContext, undefined, options);
   }
 
   // Build the execution chain from innermost to outermost
@@ -120,7 +132,9 @@ export async function executeWithLayouts<TContext extends Record<string, unknown
   let currentOutlet: Promise<string | number | void> = executeCommand(
     command,
     route,
-    userContext
+    userContext,
+    undefined,
+    options
   );
 
   // Wrap with layouts from innermost to outermost
@@ -128,7 +142,7 @@ export async function executeWithLayouts<TContext extends Record<string, unknown
     const layout = layouts[i];
     const outlet = currentOutlet;
 
-    currentOutlet = executeCommand(layout, route, userContext, outlet);
+    currentOutlet = executeCommand(layout, route, userContext, outlet, options);
   }
 
   return currentOutlet;

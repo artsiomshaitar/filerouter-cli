@@ -30,6 +30,7 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
     context = {} as TContext,
     defaultOnError,
     cliName = "cli",
+    strictFlags = true,
   } = config;
 
   /**
@@ -93,7 +94,8 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
         command,
         layouts,
         route,
-        context
+        context,
+        { strictFlags }
       );
 
       // Handle output

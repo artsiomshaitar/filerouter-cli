@@ -21,8 +21,13 @@ export {
   validateParams,
   expandAliases,
   extractBooleanFlags,
+  extractValidFlags,
+  suggestSimilarFlags,
+  formatUnknownFlagsError,
   type ParsedArgs,
   type ParseOptions,
+  type ValidateArgsOptions,
+  type FlagInfo,
 } from "./parser";
 
 // Middleware utilities

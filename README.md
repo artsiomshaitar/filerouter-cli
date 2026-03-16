@@ -293,6 +293,34 @@ const router = createCommandsRouter({
   defaultOnError: (error) => {
     console.error("Error:", error.message);
   },
+  strictFlags: true, // Default: true - reject unknown flags
+});
+```
+
+### Strict Flag Validation
+
+By default, unknown flags are rejected with helpful error messages:
+
+```bash
+my-cli list --fil
+# Error: Unknown flag: --fil
+# Did you mean: --filter (alias: -f)?
+
+my-cli list --xyz
+# Error: Unknown flag: --xyz
+# Available flags: --filter (alias: -f)
+```
+
+The suggestion system uses:
+- **Prefix matching** - suggests `--filter` for `--fil`
+- **Typo detection** - suggests `--filter` for `--fitler` (using edit distance)
+
+To disable strict validation and allow unknown flags:
+
+```typescript
+const router = createCommandsRouter({
+  commandsTree,
+  strictFlags: false,
 });
 ```
 
