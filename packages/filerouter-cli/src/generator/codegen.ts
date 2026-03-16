@@ -20,7 +20,7 @@ export function generateCommandsTree(
   lines.push("");
 
   // Imports
-  lines.push("import { ParseError, parseRawArgs, extractBooleanFlags } from 'filerouter-cli';");
+  lines.push("import { ParseError, parseRawArgs, extractBooleanFlags, registerCommands } from 'filerouter-cli';");
   lines.push("import type { ParsedRoute, EmptyParams } from 'filerouter-cli';");
   lines.push("");
 
@@ -39,6 +39,12 @@ export function generateCommandsTree(
     lines.push(`  "${cmd.routePath}": ${varName}Command,`);
   }
   lines.push("} as const;");
+  lines.push("");
+
+  // Register commands for commandInfo() to work
+  const cliNameStr = config.cliName ? `"${config.cliName}"` : "undefined";
+  lines.push(`// Register commands for type-safe commandInfo() helper`);
+  lines.push(`registerCommands(commandsTree, ${cliNameStr});`);
   lines.push("");
 
   // Type definitions

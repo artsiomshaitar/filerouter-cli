@@ -150,13 +150,49 @@ export interface ParsedRoute {
 }
 
 /**
+ * Information about a Zod schema field (used in command args)
+ */
+export interface FieldInfo {
+  /** Field name */
+  name: string;
+  /** Field type (string, number, boolean, array, or enum values) */
+  type: string;
+  /** Field description from Zod .describe() */
+  description?: string;
+  /** Whether the field is optional */
+  isOptional: boolean;
+  /** Default value if defined */
+  defaultValue?: unknown;
+}
+
+/**
+ * Information about a path parameter
+ */
+export interface ParamInfo {
+  /** Parameter name (e.g., "projectId" or "_splat") */
+  name: string;
+  /** Parameter description */
+  description?: string;
+  /** Whether this is a splat/variadic parameter */
+  isSplat: boolean;
+}
+
+/**
  * Command info helper return type
  */
 export interface CommandInfo {
   /** Command description */
   description: string;
-  /** Generate usage string */
-  usage: () => string;
+  /** Get just the CLI command without args (e.g., "my-cli auth") */
+  command(): string;
+  /** Get usage string with args (e.g., "my-cli auth --username <string> --password <string>") */
+  usage(): string;
+  /** Extracted arg field information */
+  args: FieldInfo[];
+  /** Extracted param information */
+  params: ParamInfo[];
+  /** Get full help text (like --help output) */
+  fullUsage(): string;
 }
 
 /**

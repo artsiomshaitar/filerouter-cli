@@ -1,7 +1,5 @@
-import { createFileCommand } from "filerouter-cli";
+import { createFileCommand, commandInfo } from "filerouter-cli";
 import { authMiddleware } from "../../utils/auth";
-// Note: commandInfo will be available from the generated file
-// import { commandInfo } from "../../commandsTree.gen";
 
 export const Command = createFileCommand("/_auth")({
   description: "Auth layout - wraps protected commands",
@@ -11,7 +9,7 @@ export const Command = createFileCommand("/_auth")({
     return `Unauthorized: ${error.message}
 
 Please authenticate first with:
-  my-cli auth --username <username> --password <password>`;
+  ${commandInfo("/auth").usage()}`;
   },
   handler: async ({ outlet }) => {
     const childOutput = await outlet;

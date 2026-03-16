@@ -44,6 +44,9 @@ export {
   extractFieldsFromZodSchema,
 } from "./help";
 
+// Command info (type-safe command introspection)
+export { commandInfo, registerCommands } from "./commandInfo";
+
 // Types
 export type {
   // Core types
@@ -53,6 +56,8 @@ export type {
   ParsedRoute,
   Router,
   CommandInfo,
+  FieldInfo,
+  ParamInfo,
   // Handler types
   HandlerContext,
   CommandHandler,

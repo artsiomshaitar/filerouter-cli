@@ -85,10 +85,10 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
       return helpText;
     }
 
-    try {
-      // Find layout chain
-      const layouts = findLayoutChain(route.path, commandsTree);
+    // Find layout chain
+    const layouts = findLayoutChain(route.path, commandsTree);
 
+    try {
       // Execute with layouts
       const result = await executeWithLayouts(
         command,
@@ -120,9 +120,15 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
         return handleRoute(newRoute, printOutput);
       }
 
-      // Handle command-specific error handler
-      if (command.config.onError) {
-        const handled = command.config.onError(error as Error);
+      // Try error handlers in order: layouts (outermost first) -> command -> global
+      // This allows layouts to handle errors from their children
+      const errorHandlers = [
+        ...layouts.map((l) => l.config.onError),
+        command.config.onError,
+      ].filter(Boolean);
+
+      for (const onError of errorHandlers) {
+        const handled = onError!(error as Error);
         if (handled !== undefined) {
           if (printOutput) {
             console.error(handled);
