@@ -179,18 +179,11 @@ describe("generateCommandsTree", () => {
     });
   });
 
-  describe("parseRoute generation", () => {
-    it("generates parseRoute as const using createParseRoute", () => {
+  describe("routeTable export", () => {
+    it("exports routeTable for use with router", () => {
       const code = generateCommandsTree([], defaultConfig);
 
-      expect(code).toContain("export const parseRoute = createParseRoute(commandsTree, routeTable)");
-    });
-
-    it("includes JSDoc comment", () => {
-      const code = generateCommandsTree([], defaultConfig);
-
-      expect(code).toContain("Parse process.argv into a ParsedRoute");
-      expect(code).toContain("@throws ParseError");
+      expect(code).toContain("export const routeTable: RouteTable = {");
     });
   });
 
@@ -394,7 +387,7 @@ describe("generated code execution", () => {
     // We can verify by attempting to parse it
     const content = await readFile(join(tempDir, "commandsTree.gen.ts"), "utf-8");
     expect(content).toContain("export const commandsTree");
-    expect(content).toContain("export const parseRoute");
+    expect(content).toContain("export const routeTable");
   });
 
   it("generates code that handles multiple route types", async () => {

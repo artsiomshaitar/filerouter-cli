@@ -6,14 +6,7 @@ export { createCommandsRouter } from "./router";
 // Run command (type-safe command invocation)
 export { runCommand, isRunCommand, type Register, type RegisteredContext, type EmptyParams } from "./runCommand";
 
-// Error types
-export {
-  ParseError,
-  RunCommandError,
-  CommandNotFoundError,
-  MiddlewareError,
-  type ParseErrorCode,
-} from "./errors";
+
 
 // Parser utilities
 export {

@@ -128,17 +128,19 @@ bun run main.ts --help
 
 ## File Conventions
 
-| File Pattern | Route | Description |
-|--------------|-------|-------------|
-| `index.ts` | `/` | Root/index command |
-| `auth.ts` | `/auth` | Static route |
-| `list/index.ts` | `/list` | Nested index |
-| `$projectId.ts` | `/$projectId` | Dynamic parameter |
-| `list/$projectId.ts` | `/list/$projectId` | Nested dynamic |
-| `$.ts` | `/$` | Splat (captures all remaining) |
-| `add/$.ts` | `/add/$` | Nested splat |
-| `_auth/route.ts` | `/_auth` | Pathless layout |
-| `_auth/protected.ts` | `/_auth/protected` | Layout child |
+
+| File Pattern         | Route              | Description                    |
+| -------------------- | ------------------ | ------------------------------ |
+| `index.ts`           | `/`                | Root/index command             |
+| `auth.ts`            | `/auth`            | Static route                   |
+| `list/index.ts`      | `/list`            | Nested index                   |
+| `$projectId.ts`      | `/$projectId`      | Dynamic parameter              |
+| `list/$projectId.ts` | `/list/$projectId` | Nested dynamic                 |
+| `$.ts`               | `/$`               | Splat (captures all remaining) |
+| `add/$.ts`           | `/add/$`           | Nested splat                   |
+| `_auth/route.ts`     | `/_auth`           | Pathless layout                |
+| `_auth/protected.ts` | `/_auth/protected` | Layout child                   |
+
 
 ## Command Configuration
 
@@ -312,6 +314,7 @@ my-cli list --xyz
 ```
 
 The suggestion system uses:
+
 - **Prefix matching** - suggests `--filter` for `--fil`
 - **Typo detection** - suggests `--filter` for `--fitler` (using edit distance)
 
@@ -334,6 +337,7 @@ bunx filerouter-cli init <project-name> [options]
 ```
 
 Creates a new project with:
+
 - `commands/` directory with example commands
 - `main.ts` entry point
 - `package.json` with scripts

@@ -4,6 +4,7 @@ import { createCommandsRouter } from "../router";
 import { createFileCommand } from "../createFileCommand";
 import { runCommand } from "../runCommand";
 import type { FileCommand, ParsedRoute } from "../types";
+import { createParseRoute, type RouteTable } from "../parseRoute";
 import { RunCommandError, ParseError } from "../errors";
 
 // Helper to create test commands tree
@@ -77,7 +78,42 @@ function createTestTree(): Record<string, FileCommand<any, any, any, any>> {
   };
 }
 
-// Helper to create a route
+// Helper to create test route table matching the test tree
+function createTestRouteTable(): RouteTable {
+  return {
+    staticRoutes: {
+      "auth": "/auth",
+      "list": "/list",
+      "error": "/error",
+      "error-handled": "/error-handled",
+      "exit": "/exit",
+      "void": "/void",
+      "runcommand-source": "/runcommand-source",
+      "child": "/_layout/child",
+    },
+    dynamicRoutes: [
+      { segments: ["projects", "$projectId"], path: "/projects/$projectId", paramIndices: { projectId: 1 } },
+    ],
+    splatRoutes: [
+      { parentSegments: ["add"], path: "/add/$" },
+    ],
+    availableCommands: ["auth", "list", "projects <projectId>", "add <items...>", "error", "exit", "void"],
+  };
+}
+
+// Helper to create a test router
+function createTestRouter(options: { context?: any; cliName?: string; defaultOnError?: (err: Error) => void } = {}) {
+  const tree = createTestTree();
+  const routeTable = createTestRouteTable();
+  const parseRoute = createParseRoute(tree, routeTable);
+  return createCommandsRouter({
+    commandsTree: tree,
+    parseRoute,
+    ...options,
+  });
+}
+
+// Helper to create a route for invoke()
 function createRoute(overrides: Partial<ParsedRoute> = {}): ParsedRoute {
   return {
     path: "/",
@@ -109,9 +145,8 @@ describe("createCommandsRouter", () => {
   });
 
   describe("basic router creation", () => {
-    it("creates a router with commands tree", () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
+    it("creates a router with commands tree and parseRoute", () => {
+      const router = createTestRouter();
 
       expect(router).toBeDefined();
       expect(typeof router.run).toBe("function");
@@ -119,55 +154,37 @@ describe("createCommandsRouter", () => {
     });
 
     it("accepts optional context", () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({
-        commandsTree: tree,
-        context: { user: { id: "123" } },
-      });
-
+      const router = createTestRouter({ context: { user: { id: "123" } } });
       expect(router).toBeDefined();
     });
 
     it("accepts optional cliName", () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({
-        commandsTree: tree,
-        cliName: "my-awesome-cli",
-      });
-
+      const router = createTestRouter({ cliName: "my-awesome-cli" });
       expect(router).toBeDefined();
     });
   });
 
   describe("invoke method", () => {
     it("returns string result from handler", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(createRoute({ path: "/" }));
       expect(result).toBe("root output");
     });
 
     it("returns number result from handler", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(createRoute({ path: "/exit" }));
       expect(result).toBe(42);
     });
 
     it("returns undefined for void handler", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(createRoute({ path: "/void" }));
       expect(result).toBeUndefined();
     });
 
     it("passes args to command", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(
         createRoute({
           path: "/auth",
@@ -178,9 +195,7 @@ describe("createCommandsRouter", () => {
     });
 
     it("passes params to command", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(
         createRoute({
           path: "/projects/$projectId",
@@ -191,9 +206,7 @@ describe("createCommandsRouter", () => {
     });
 
     it("handles splat params", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(
         createRoute({
           path: "/add/$",
@@ -204,18 +217,14 @@ describe("createCommandsRouter", () => {
     });
 
     it("throws error for unknown command", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       await expect(
         router.invoke(createRoute({ path: "/unknown" }))
       ).rejects.toThrow();
     });
 
     it("propagates handler errors", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       await expect(
         router.invoke(createRoute({ path: "/error" }))
       ).rejects.toThrow("command error");
@@ -224,63 +233,44 @@ describe("createCommandsRouter", () => {
 
   describe("run method", () => {
     it("prints string output to console", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
-      await router.run(createRoute({ path: "/" }));
-
+      const router = createTestRouter();
+      await router.run(["node", "cli"]);
       expect(logOutput).toContain("root output");
     });
 
     it("does not print for void result", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
-      await router.run(createRoute({ path: "/void" }));
-
+      const router = createTestRouter();
+      await router.run(["node", "cli", "void"]);
       expect(logOutput).toHaveLength(0);
     });
 
     it("handles command errors with command onError", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
-      await router.run(createRoute({ path: "/error-handled" }));
-
+      const router = createTestRouter();
+      await router.run(["node", "cli", "error-handled"]);
       // onError output goes to console.error
       expect(errorOutput).toContain("Handled: handled error");
     });
 
     it("handles command errors with global defaultOnError", async () => {
-      const tree = createTestTree();
       let capturedError: Error | null = null;
-
-      const router = createCommandsRouter({
-        commandsTree: tree,
+      const router = createTestRouter({
         defaultOnError: (err) => {
           capturedError = err;
         },
       });
-
-      await router.run(createRoute({ path: "/error" }));
-
+      await router.run(["node", "cli", "error"]);
       expect(capturedError).not.toBeNull();
       expect(capturedError!.message).toBe("command error");
     });
 
     it("command onError takes priority over global defaultOnError", async () => {
-      const tree = createTestTree();
       let globalCalled = false;
-
-      const router = createCommandsRouter({
-        commandsTree: tree,
+      const router = createTestRouter({
         defaultOnError: () => {
           globalCalled = true;
         },
       });
-
-      await router.run(createRoute({ path: "/error-handled" }));
-
+      await router.run(["node", "cli", "error-handled"]);
       expect(globalCalled).toBe(false);
       // onError output goes to console.error
       expect(errorOutput).toContain("Handled: handled error");
@@ -288,64 +278,33 @@ describe("createCommandsRouter", () => {
   });
 
   describe("help handling", () => {
-    it("shows global help for __help__ path", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({
-        commandsTree: tree,
-        cliName: "test-cli",
-      });
-
-      await router.run(createRoute({ path: "__help__" }));
-
+    it("shows global help for --help flag", async () => {
+      const router = createTestRouter({ cliName: "test-cli" });
+      await router.run(["node", "cli", "--help"]);
       expect(logOutput.join("\n")).toContain("Usage: test-cli");
       expect(logOutput.join("\n")).toContain("Commands:");
     });
 
-    it("shows command help when args.help is true", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({
-        commandsTree: tree,
-        cliName: "test-cli",
-      });
-
-      await router.run(
-        createRoute({
-          path: "/list",
-          args: { help: true },
-        })
-      );
-
+    it("shows command help when --help flag is passed", async () => {
+      const router = createTestRouter({ cliName: "test-cli" });
+      await router.run(["node", "cli", "list", "--help"]);
       expect(logOutput.join("\n")).toContain("test-cli list");
       expect(logOutput.join("\n")).toContain("--verbose");
     });
 
-    it("shows command help when args.h is true", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({
-        commandsTree: tree,
-        cliName: "test-cli",
-      });
-
-      await router.run(
-        createRoute({
-          path: "/auth",
-          args: { h: true },
-        })
-      );
-
+    it("shows command help when -h flag is passed", async () => {
+      const router = createTestRouter({ cliName: "test-cli" });
+      await router.run(["node", "cli", "auth", "-h"]);
       expect(logOutput.join("\n")).toContain("test-cli auth");
     });
   });
 
   describe("runCommand handling", () => {
     it("follows runCommand to another command", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(
         createRoute({ path: "/runcommand-source" })
       );
-
       expect(result).toBe("auth: redirected");
     });
 
@@ -365,7 +324,17 @@ describe("createCommandsRouter", () => {
         }),
       };
 
-      const router = createCommandsRouter({ commandsTree: treeWithRunCommand });
+      const routeTable: RouteTable = {
+        staticRoutes: { "source": "/source", "target": "/target" },
+        dynamicRoutes: [],
+        splatRoutes: [],
+        availableCommands: ["source", "target"],
+      };
+
+      const router = createCommandsRouter({
+        commandsTree: treeWithRunCommand,
+        parseRoute: createParseRoute(treeWithRunCommand, routeTable),
+      });
       const result = await router.invoke(createRoute({ path: "/source" }));
 
       expect(result).toBe("received: passed");
@@ -374,9 +343,7 @@ describe("createCommandsRouter", () => {
 
   describe("layout handling", () => {
     it("wraps child with layout", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(
         createRoute({ path: "/_layout/child" })
       );
@@ -399,9 +366,17 @@ describe("createCommandsRouter", () => {
         }),
       };
 
+      const routeTable: RouteTable = {
+        staticRoutes: { "test": "/test" },
+        dynamicRoutes: [],
+        splatRoutes: [],
+        availableCommands: ["test"],
+      };
+
       const userContext = { user: { id: "123" }, settings: { theme: "dark" } };
       const router = createCommandsRouter({
         commandsTree: treeWithContext,
+        parseRoute: createParseRoute(treeWithContext, routeTable),
         context: userContext,
       });
 
@@ -413,18 +388,13 @@ describe("createCommandsRouter", () => {
 
   describe("result handling", () => {
     it("handles string result", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
-      await router.run(createRoute({ path: "/" }));
-
+      const router = createTestRouter();
+      await router.run(["node", "cli"]);
       expect(logOutput).toContain("root output");
     });
 
     it("handles number result (exit code)", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       // For run(), number result should call process.exit
       // We can't easily test process.exit, so we test invoke() instead
       const result = await router.invoke(createRoute({ path: "/exit" }));
@@ -432,11 +402,8 @@ describe("createCommandsRouter", () => {
     });
 
     it("handles void result (no output)", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
-      await router.run(createRoute({ path: "/void" }));
-
+      const router = createTestRouter();
+      await router.run(["node", "cli", "void"]);
       // No output should be logged
       expect(logOutput).toHaveLength(0);
     });
@@ -444,9 +411,7 @@ describe("createCommandsRouter", () => {
 
   describe("alias handling", () => {
     it("validates args with alias expansion", async () => {
-      const tree = createTestTree();
-      const router = createCommandsRouter({ commandsTree: tree });
-
+      const router = createTestRouter();
       const result = await router.invoke(
         createRoute({
           path: "/list",
@@ -475,7 +440,17 @@ describe.skip("runCommand loop prevention", () => {
       }),
     };
 
-    const router = createCommandsRouter({ commandsTree: loopTree });
+    const routeTable: RouteTable = {
+      staticRoutes: { "a": "/a", "b": "/b" },
+      dynamicRoutes: [],
+      splatRoutes: [],
+      availableCommands: ["a", "b"],
+    };
+
+    const router = createCommandsRouter({
+      commandsTree: loopTree,
+      parseRoute: createParseRoute(loopTree, routeTable),
+    });
 
     // The router should have some protection against infinite loops
     // This might throw or timeout - implementation dependent

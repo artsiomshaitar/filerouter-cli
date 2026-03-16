@@ -207,8 +207,8 @@ function generateRouteTable(commands: ScannedCommand[]): string {
     .map((c) => routePathToCliCommand(c.routePath))
     .filter(Boolean);
 
-  lines.push("// Route table data for parseRoute");
-  lines.push("const routeTable: RouteTable = {");
+  lines.push("// Route table for argv parsing");
+  lines.push("export const routeTable: RouteTable = {");
 
   // Static routes
   lines.push("  staticRoutes: {");
@@ -255,7 +255,6 @@ function generateRouteTable(commands: ScannedCommand[]): string {
   // Generate parseRoute using library function
   lines.push("/**");
   lines.push(" * Parse process.argv into a ParsedRoute");
-  lines.push(" * @throws ParseError if the command is not found or arguments are invalid");
   lines.push(" */");
   lines.push("export const parseRoute = createParseRoute(commandsTree, routeTable);");
 

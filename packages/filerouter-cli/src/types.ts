@@ -193,6 +193,8 @@ export interface FileCommand<
 export interface RouterConfig<TContext = object> {
   /** The commands tree (auto-generated) */
   commandsTree: Record<string, FileCommand<any, any, any, any>>;
+  /** Parse argv into a route (auto-generated) */
+  parseRoute: (argv: string[]) => ParsedRoute;
   /** Shared context available to all commands */
   context?: TContext;
   /** Global error handler */
@@ -271,8 +273,8 @@ export interface CommandInfo {
  * Router instance type
  */
 export interface Router<TContext = object> {
-  /** Run a command (prints output, handles errors) */
-  run: (route: ParsedRoute) => Promise<void>;
+  /** Run a command from argv (prints output, handles errors, exits on error) */
+  run: (argv: string[]) => Promise<void>;
   /** Invoke a command programmatically (returns result, doesn't print) */
   invoke: (route: ParsedRoute) => Promise<string | number | void>;
   /** @internal Type-only property for context inference */

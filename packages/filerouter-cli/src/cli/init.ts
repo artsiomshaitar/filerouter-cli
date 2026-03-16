@@ -54,6 +54,10 @@ export async function runInit(options: InitOptions): Promise<void> {
       content: generateMainTs(),
     },
     {
+      path: path.join(projectDir, "commands", "__root.ts"),
+      content: generateRootCommand(),
+    },
+    {
       path: path.join(projectDir, "commands", "index.ts"),
       content: generateIndexCommand(),
     },
@@ -78,7 +82,7 @@ Done! To get started:
   cd ${projectName}
   bun install
   bun run generate
-  bun run start --help
+  ./main.ts --help
 
 Happy coding!
 `);
@@ -93,9 +97,8 @@ function generatePackageJson(projectName: string): string {
       [projectName]: "./main.ts",
     },
     scripts: {
-      start: "bun run main.ts",
-      dev: "bunx filerouter-cli dev main.ts",
-      generate: "bunx filerouter-cli generate",
+      dev: "bun filerouter-cli dev main.ts",
+      generate: "bun filerouter-cli generate",
       build: "bun build ./main.ts --outdir ./dist --target node",
     },
     dependencies: {
@@ -130,53 +133,54 @@ function generateTsConfig(): string {
 
 function generateMainTs(): string {
   return `#!/usr/bin/env bun
-import { createCommandsRouter, ParseError, CommandNotFoundError } from "filerouter-cli";
+import { createCommandsRouter } from "filerouter-cli";
 import { commandsTree, parseRoute } from "./commandsTree.gen";
 
 const router = createCommandsRouter({
   commandsTree,
-  // CLI name is auto-detected from package.json
-  // Override with: cliName: "my-custom-name",
+  parseRoute,
   // Add shared context here:
   // context: { db: database, config: appConfig },
 });
 
-async function main() {
-  try {
-    const route = parseRoute(process.argv);
-    await router.run(route);
-  } catch (error) {
-    if (error instanceof ParseError) {
-      console.error(\`Error: \${error.message}\`);
-      console.log(\`\\n\${error.help}\`);
-      process.exit(1);
-    }
-
-    if (error instanceof CommandNotFoundError) {
-      console.error(\`Error: \${error.message}\`);
-      console.log(\`\\n\${error.help}\`);
-      process.exit(1);
-    }
-
-    // Unknown error
-    console.error("Unexpected error:", error);
-    process.exit(1);
-  }
+await router.run(process.argv);
+`;
 }
 
-main();
+function generateRootCommand(): string {
+  return `import { createRootCommand } from "filerouter-cli";
+
+/**
+ * Application context type
+ * Add shared dependencies here (logger, config, db, etc.)
+ */
+export interface AppContext {
+  // Example:
+  // logger: { info: (msg: string) => void };
+  // config: { verbose: boolean };
+}
+
+/**
+ * Root command - defines the CLI's context type
+ * (Following TanStack Router's __root.tsx convention)
+ */
+export const RootCommand = createRootCommand<AppContext>()({
+  description: "My CLI application",
+});
 `;
 }
 
 function generateIndexCommand(): string {
   return `import { createFileCommand, commandInfo } from "filerouter-cli";
 
-// Root command - shown when user runs the CLI without arguments
+// "/" command handler - shown when user runs the CLI without arguments
 
 export const Command = createFileCommand("/")({
   description: "Welcome to the CLI",
-  handler: async () => {
-    // Use commandInfo to get the CLI name dynamically
+  handler: async ({ context }) => {
+    // Context is typed from AppContext in __root.ts
+    // Example: context.logger.info("Running root command");
+    
     const info = commandInfo("/");
     return \`
 \${info.command()} - A CLI built with filerouter-cli
@@ -219,9 +223,6 @@ node_modules/
 
 # Build output
 dist/
-
-# Generated files
-commandsTree.gen.ts
 
 # Bun
 bun.lockb

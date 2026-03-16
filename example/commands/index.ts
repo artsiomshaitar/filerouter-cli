@@ -1,4 +1,4 @@
-import { createFileCommand, runCommand } from "filerouter-cli";
+import { createFileCommand } from "filerouter-cli";
 
 // my-cli
 

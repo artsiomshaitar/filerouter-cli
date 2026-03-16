@@ -1,5 +1,5 @@
 import type { FileCommand, ParsedRoute, Router, RouterConfig } from "./types";
-import { CommandNotFoundError, RunCommandError } from "./errors";
+import { CommandNotFoundError, ParseError, RunCommandError } from "./errors";
 import { executeCommand, executeWithLayouts, findLayoutChain } from "./context";
 import { generateCommandHelp, generateGlobalHelp, hasHelpFlag } from "./help";
 import { setCliName } from "./commandInfo";
@@ -11,17 +11,14 @@ import { getProjectName } from "./packageJson";
  * @example
  * ```ts
  * import { createCommandsRouter } from "filerouter-cli";
- * import { commandsTree } from "./commandsTree.gen";
+ * import { commandsTree, parseRoute } from "./commandsTree.gen";
  *
- * export const router = createCommandsRouter({
+ * const router = createCommandsRouter({
  *   commandsTree,
- *   context: { db: database },
- *   defaultOnError: (error) => console.error(error),
+ *   parseRoute,
  * });
  *
- * // In main.ts
- * const route = parseRoute(process.argv);
- * await router.run(route);
+ * await router.run(process.argv);
  * ```
  */
 export function createCommandsRouter<TContext extends object = object>(
@@ -29,6 +26,7 @@ export function createCommandsRouter<TContext extends object = object>(
 ): Router<TContext> {
   const {
     commandsTree,
+    parseRoute,
     context = {} as TContext,
     defaultOnError,
     cliName: explicitCliName,
@@ -158,10 +156,23 @@ export function createCommandsRouter<TContext extends object = object>(
 
   return {
     /**
-     * Run a command (prints output to console)
+     * Run a command from argv (prints output, handles errors, exits on error)
      */
-    async run(route: ParsedRoute): Promise<void> {
-      await handleRoute(route, true);
+    async run(argv: string[]): Promise<void> {
+      try {
+        const route = parseRoute(argv);
+        await handleRoute(route, true);
+      } catch (error) {
+        if (error instanceof ParseError || error instanceof CommandNotFoundError) {
+          console.error(`Error: ${error.message}`);
+          console.log(`\n${error.help}`);
+          process.exit(1);
+        }
+
+        // Unknown error
+        console.error("Unexpected error:", error);
+        process.exit(1);
+      }
     },
 
     /**

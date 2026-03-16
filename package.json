@@ -1,7 +1,10 @@
 {
   "name": "filerouter-cli-monorepo",
   "private": true,
-  "workspaces": ["packages/*", "example"],
+  "workspaces": [
+    "packages/*",
+    "example"
+  ],
   "scripts": {
     "test": "bun test --cwd packages/filerouter-cli",
     "typecheck": "bunx tsc --noEmit -p packages/filerouter-cli/tsconfig.json",

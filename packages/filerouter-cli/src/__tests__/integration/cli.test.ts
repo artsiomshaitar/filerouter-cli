@@ -102,7 +102,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
       });
 
       expect(code).toContain('"/auth": AuthCommand');
-      expect(code).toContain("export const parseRoute = createParseRoute");
+      expect(code).toContain("export const routeTable: RouteTable");
       expect(code).toContain('registerCommands(commandsTree)');
     });
   });
