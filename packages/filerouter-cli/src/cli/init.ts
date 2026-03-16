@@ -3,14 +3,13 @@ import * as path from "path";
 
 export interface InitOptions {
   projectName: string;
-  cliName?: string;
 }
 
 /**
  * Initialize a new filerouter-cli project
  */
 export async function runInit(options: InitOptions): Promise<void> {
-  const { projectName, cliName = projectName } = options;
+  const { projectName } = options;
   const projectDir = path.resolve(process.cwd(), projectName);
 
   // Check if directory already exists
@@ -44,7 +43,7 @@ export async function runInit(options: InitOptions): Promise<void> {
   const files: Array<{ path: string; content: string }> = [
     {
       path: path.join(projectDir, "package.json"),
-      content: generatePackageJson(projectName, cliName),
+      content: generatePackageJson(projectName),
     },
     {
       path: path.join(projectDir, "tsconfig.json"),
@@ -52,11 +51,11 @@ export async function runInit(options: InitOptions): Promise<void> {
     },
     {
       path: path.join(projectDir, "main.ts"),
-      content: generateMainTs(cliName),
+      content: generateMainTs(),
     },
     {
       path: path.join(projectDir, "commands", "index.ts"),
-      content: generateIndexCommand(cliName),
+      content: generateIndexCommand(),
     },
     {
       path: path.join(projectDir, "commands", "hello.ts"),
@@ -85,17 +84,17 @@ Happy coding!
 `);
 }
 
-function generatePackageJson(projectName: string, cliName: string): string {
+function generatePackageJson(projectName: string): string {
   const pkg = {
     name: projectName,
     version: "0.1.0",
     type: "module",
     bin: {
-      [cliName]: "./main.ts",
+      [projectName]: "./main.ts",
     },
     scripts: {
       start: "bun run main.ts",
-      dev: "bunx filerouter-cli dev",
+      dev: "bunx filerouter-cli dev main.ts",
       generate: "bunx filerouter-cli generate",
       build: "bun build ./main.ts --outdir ./dist --target node",
     },
@@ -129,14 +128,15 @@ function generateTsConfig(): string {
   return JSON.stringify(config, null, 2) + "\n";
 }
 
-function generateMainTs(cliName: string): string {
+function generateMainTs(): string {
   return `#!/usr/bin/env bun
 import { createCommandsRouter, ParseError, CommandNotFoundError } from "filerouter-cli";
 import { commandsTree, parseRoute } from "./commandsTree.gen";
 
 const router = createCommandsRouter({
   commandsTree,
-  cliName: "${cliName}",
+  // CLI name is auto-detected from package.json
+  // Override with: cliName: "my-custom-name",
   // Add shared context here:
   // context: { db: database, config: appConfig },
 });
@@ -168,19 +168,20 @@ main();
 `;
 }
 
-function generateIndexCommand(cliName: string): string {
-  return `import { createFileCommand } from "filerouter-cli";
+function generateIndexCommand(): string {
+  return `import { createFileCommand, commandInfo } from "filerouter-cli";
 
-// ${cliName}
 // Root command - shown when user runs the CLI without arguments
 
 export const Command = createFileCommand("/")({
-  description: "Welcome to ${cliName}",
+  description: "Welcome to the CLI",
   handler: async () => {
+    // Use commandInfo to get the CLI name dynamically
+    const info = commandInfo("/");
     return \`
-${cliName} - A CLI built with filerouter-cli
+\${info.command()} - A CLI built with filerouter-cli
 
-Run '${cliName} --help' to see available commands.
+Run '\${info.command()} --help' to see available commands.
 \`.trim();
   },
 });

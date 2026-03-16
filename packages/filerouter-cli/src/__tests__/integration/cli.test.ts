@@ -44,7 +44,6 @@ describe("CLI Integration", () => {
     const code = generateCommandsTree(commands, {
       commandsDirectory: "./commands",
       generatedFile: genFile,
-      cliName: "test-cli",
     });
     await writeFile(genFile, code);
     
@@ -93,12 +92,11 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "my-cli",
       });
 
       expect(code).toContain('"/auth": AuthCommand');
       expect(code).toContain("export const parseRoute = createParseRoute");
-      expect(code).toContain('registerCommands(commandsTree, "my-cli")');
+      expect(code).toContain('registerCommands(commandsTree)');
     });
   });
 
@@ -143,7 +141,6 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "cli",
       });
 
       expect(code).toContain("dynamicRoutes");
@@ -193,7 +190,6 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "cli",
       });
 
       expect(code).toContain("splatRoutes");
@@ -271,7 +267,6 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "cli",
       });
 
       // The CLI command should be "protected", not "_auth/protected"
@@ -355,7 +350,6 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "cli",
       });
 
       // Verify all route types in generated code
@@ -407,7 +401,6 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "cli",
       });
 
       // Verify order in generated code:
@@ -538,11 +531,10 @@ describe("CLI Integration", () => {
       const code = generateCommandsTree(commands, {
         commandsDirectory: "./commands",
         generatedFile: genFile,
-        cliName: "my-awesome-cli",
       });
 
-      // CLI name is used in registerCommands call
-      expect(code).toContain('registerCommands(commandsTree, "my-awesome-cli")');
+      // CLI name is determined at runtime, not in generated code
+      expect(code).toContain('registerCommands(commandsTree)');
       // Available commands are in the routeTable
       expect(code).toContain("availableCommands:");
       expect(code).toContain('"auth"');

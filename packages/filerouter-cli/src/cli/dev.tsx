@@ -5,7 +5,7 @@ import { DevMode } from "./components/DevMode.js";
 export interface DevOptions {
   commandsDirectory: string;
   generatedFile: string;
-  cliName: string;
+  entryPoint: string;
 }
 
 export async function runDev(options: DevOptions): Promise<void> {
@@ -19,7 +19,7 @@ This happens when:
   - Running through certain terminal wrappers
 
 Solutions:
-  - Run directly in a terminal: bun filerouter-cli dev
+  - Run directly in a terminal: bun filerouter-cli dev main.ts
   - Use 'generate' command for non-interactive use: filerouter-cli generate
 `);
     process.exit(1);
@@ -29,7 +29,7 @@ Solutions:
     <DevMode
       commandsDirectory={options.commandsDirectory}
       generatedFile={options.generatedFile}
-      cliName={options.cliName}
+      entryPoint={options.entryPoint}
     />
   );
 

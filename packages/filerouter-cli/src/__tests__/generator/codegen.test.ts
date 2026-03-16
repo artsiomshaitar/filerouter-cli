@@ -9,7 +9,6 @@ describe("generateCommandsTree", () => {
   const defaultConfig: GeneratorConfig = {
     commandsDirectory: "./commands",
     generatedFile: "./commandsTree.gen.ts",
-    cliName: "test-cli",
   };
 
   describe("header generation", () => {
@@ -304,11 +303,11 @@ describe("generateCommandsTree", () => {
   });
 
   describe("registerCommands call", () => {
-    it("calls registerCommands with cliName", () => {
-      const config = { ...defaultConfig, cliName: "my-awesome-cli" };
-      const code = generateCommandsTree([], config);
+    it("calls registerCommands without cliName (cliName is determined at runtime)", () => {
+      const code = generateCommandsTree([], defaultConfig);
 
-      expect(code).toContain('registerCommands(commandsTree, "my-awesome-cli")');
+      expect(code).toContain('registerCommands(commandsTree)');
+      expect(code).not.toContain('registerCommands(commandsTree, ');
     });
   });
 });
@@ -341,7 +340,6 @@ describe("generated code execution", () => {
     const code = generateCommandsTree(commands, {
       commandsDirectory: "./commands",
       generatedFile: join(tempDir, "commandsTree.gen.ts"),
-      cliName: "test-cli",
     });
 
     // Write the generated code
@@ -426,7 +424,6 @@ describe("generated code execution", () => {
     const code = generateCommandsTree(commands, {
       commandsDirectory: "./commands",
       generatedFile: join(tempDir, "commandsTree.gen.ts"),
-      cliName: "test-cli",
     });
 
     // Verify all route types are present

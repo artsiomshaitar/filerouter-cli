@@ -9,7 +9,6 @@ import {
 export interface WatcherOptions {
   commandsDirectory: string;
   generatedFile: string;
-  cliName: string;
   onCommandsChanged: (commandCount: number) => void;
   onWatchEvent: (message: string) => void;
   onError: (error: Error) => void;
@@ -23,7 +22,6 @@ export function startWatcher(options: WatcherOptions): () => void {
   const {
     commandsDirectory,
     generatedFile,
-    cliName,
     onCommandsChanged,
     onWatchEvent,
     onError,
@@ -90,7 +88,6 @@ export function startWatcher(options: WatcherOptions): () => void {
       const code = generateCommandsTree(result.commands, {
         commandsDirectory,
         generatedFile,
-        cliName,
       });
 
       // Ensure directory exists

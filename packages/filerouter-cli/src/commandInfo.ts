@@ -12,11 +12,17 @@ let registeredCliName: string = "cli";
  * This is called automatically by the generated commandsTree.gen.ts
  */
 export function registerCommands(
-  tree: Record<string, FileCommand<any, any, any, any>>,
-  cliName?: string
+  tree: Record<string, FileCommand<any, any, any, any>>
 ): void {
   registeredTree = tree;
-  if (cliName) registeredCliName = cliName;
+}
+
+/**
+ * Set the CLI name for use with commandInfo()
+ * This is called by createCommandsRouter() to sync the CLI name
+ */
+export function setCliName(name: string): void {
+  registeredCliName = name;
 }
 
 /**

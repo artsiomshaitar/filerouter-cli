@@ -1,11 +1,11 @@
 {
-  "name": "example",
+  "name": "example-cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun ../packages/filerouter-cli/dist/cli/index.js dev -n my-cli",
-    "generate": "bun ../packages/filerouter-cli/dist/cli/index.js generate -n my-cli",
+    "dev": "bun ../packages/filerouter-cli/dist/cli/index.js dev main.ts",
+    "generate": "bun ../packages/filerouter-cli/dist/cli/index.js generate",
     "cli": "bun run main.ts"
   },
   "dependencies": {

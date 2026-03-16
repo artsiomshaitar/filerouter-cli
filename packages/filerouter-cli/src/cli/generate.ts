@@ -5,7 +5,6 @@ import { scanCommands, generateCommandsTree } from "../generator";
 export interface GenerateOptions {
   commandsDirectory: string;
   generatedFile: string;
-  cliName: string;
 }
 
 export async function runGenerate(options: GenerateOptions): Promise<void> {
@@ -25,7 +24,6 @@ export async function runGenerate(options: GenerateOptions): Promise<void> {
   const code = generateCommandsTree(result.commands, {
     commandsDirectory: options.commandsDirectory,
     generatedFile: options.generatedFile,
-    cliName: options.cliName,
   });
 
   // Ensure directory exists

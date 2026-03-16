@@ -18,11 +18,6 @@ const { values, positionals } = parseArgs({
       short: "o",
       default: "./commandsTree.gen.ts",
     },
-    name: {
-      type: "string",
-      short: "n",
-      default: "cli",
-    },
     help: {
       type: "boolean",
       short: "h",
@@ -44,21 +39,20 @@ FileRouter CLI v${VERSION}
 Usage: filerouter-cli <command> [options]
 
 Commands:
-  init       Create a new filerouter-cli project
-  dev        Start interactive dev mode with hot reload
-  generate   Generate commandsTree.gen.ts
-  completion Generate shell completion scripts
+  init <name>        Create a new filerouter-cli project
+  dev <entry>        Start dev mode with file watching
+  generate           Generate commandsTree.gen.ts
+  completion         Generate shell completion scripts
 
 Options:
   -c, --commands <dir>   Commands directory (default: ./commands)
   -o, --output <file>    Generated file (default: ./commandsTree.gen.ts)
-  -n, --name <name>      CLI name for help generation (default: cli)
   -h, --help             Show this help message
   -v, --version          Show version
 
 Examples:
   filerouter-cli init my-cli
-  filerouter-cli dev
+  filerouter-cli dev main.ts
   filerouter-cli generate
   filerouter-cli completion bash >> ~/.bashrc
 `);
@@ -83,7 +77,6 @@ async function main() {
   const options = {
     commandsDirectory: values.commands as string,
     generatedFile: values.output as string,
-    cliName: values.name as string,
   };
 
   switch (command) {
@@ -91,47 +84,24 @@ async function main() {
       const projectName = positionals[1];
       if (!projectName) {
         console.error("Error: Project name is required.\n");
-        console.log("Usage: filerouter-cli init <project-name> [options]");
-        console.log("\nOptions:");
-        console.log("  -n, --name <name>   CLI name (default: project name)");
+        console.log("Usage: filerouter-cli init <project-name>");
         process.exit(1);
       }
       const { runInit } = await import("./init.js");
-      await runInit({
-        projectName,
-        cliName: values.name !== "cli" ? values.name as string : projectName,
-      });
+      await runInit({ projectName });
       break;
     }
     case "dev": {
-      // Check if we're already running with --hot (internal command)
-      if (positionals[1] === "__hot__") {
-        // Actually run the dev mode (we're now running under bun --hot)
-        const { runDev } = await import("./dev.js");
-        await runDev(options);
-      } else {
-        // Spawn ourselves with bun --hot
-        const scriptPath = import.meta.path;
-        const args = [
-          "bun",
-          "--hot",
-          scriptPath,
-          "dev",
-          "__hot__",
-          "-c", options.commandsDirectory,
-          "-o", options.generatedFile,
-          "-n", options.cliName,
-        ];
-
-        const proc = Bun.spawn(args, {
-          stdio: ["inherit", "inherit", "inherit"],
-          env: process.env,
-        });
-
-        // Wait for the process to exit
-        const exitCode = await proc.exited;
-        process.exit(exitCode);
+      const entryPoint = positionals[1];
+      if (!entryPoint) {
+        console.error("Error: Entry point is required.\n");
+        console.log("Usage: filerouter-cli dev <entry>");
+        console.log("\nExample:");
+        console.log("  filerouter-cli dev main.ts");
+        process.exit(1);
       }
+      const { runDev } = await import("./dev.js");
+      await runDev({ ...options, entryPoint });
       break;
     }
     case "generate": {

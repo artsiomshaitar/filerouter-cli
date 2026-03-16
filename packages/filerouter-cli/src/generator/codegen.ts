@@ -39,9 +39,8 @@ export function generateCommandsTree(
   lines.push("");
 
   // Register commands for commandInfo() to work
-  const cliNameStr = config.cliName ? `"${config.cliName}"` : "undefined";
   lines.push(`// Register commands for type-safe commandInfo() helper`);
-  lines.push(`registerCommands(commandsTree, ${cliNameStr});`);
+  lines.push(`registerCommands(commandsTree);`);
   lines.push("");
 
   // Type definitions

@@ -1,64 +1,36 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Box, useApp } from "ink";
+import React, { useState, useEffect, useCallback } from "react";
+import { Box } from "ink";
 import { Header } from "./Header.js";
 import { Output, OutputEntry, OutputEntryType } from "./Output.js";
 import { Prompt } from "./Prompt.js";
 import { startWatcher, getInitialCommandCount } from "../watcher.js";
 import { getVersion } from "../version.js";
-import { ParseError, CommandNotFoundError } from "../../errors.js";
+import { getProjectName } from "../../packageJson.js";
 import * as path from "path";
 
 const VERSION = getVersion();
 
-// State persisted via globalThis across hot reloads
-declare global {
-  var __filerouter_dev_state: {
-    history: string[];
-    entries: OutputEntry[];
-    entryIdCounter: number;
-  } | undefined;
-}
-
-// Initialize or restore persisted state
-const getPersistedState = () => {
-  if (!globalThis.__filerouter_dev_state) {
-    globalThis.__filerouter_dev_state = {
-      history: [],
-      entries: [],
-      entryIdCounter: 0,
-    };
-  }
-  return globalThis.__filerouter_dev_state;
-};
-
 export interface DevModeProps {
   commandsDirectory: string;
   generatedFile: string;
-  cliName?: string;
+  entryPoint: string;
 }
 
-export function DevMode({ commandsDirectory, generatedFile, cliName = "dev" }: DevModeProps) {
-  const { exit } = useApp();
-  const persistedState = getPersistedState();
+export function DevMode({ commandsDirectory, generatedFile, entryPoint }: DevModeProps) {
+  // Get CLI name from package.json (falls back to "cli")
+  const cliName = getProjectName();
 
-  // Use persisted state for history and entries
   const [commandCount, setCommandCount] = useState(0);
-  const [history, setHistory] = useState<string[]>(persistedState.history);
-  const [entries, setEntries] = useState<OutputEntry[]>(persistedState.entries);
+  const [history, setHistory] = useState<string[]>([]);
+  const [entries, setEntries] = useState<OutputEntry[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
 
-  // Sync state back to globalThis when it changes
-  useEffect(() => {
-    persistedState.history = history;
-  }, [history]);
-
-  useEffect(() => {
-    persistedState.entries = entries;
-  }, [entries]);
+  // Counter for unique entry IDs
+  const entryIdRef = React.useRef(0);
 
   // Add an entry to the output
   const addEntry = useCallback((type: OutputEntryType, content: string) => {
-    const id = persistedState.entryIdCounter++;
+    const id = entryIdRef.current++;
     setEntries((prev) => [
       ...prev,
       { id, type, content, timestamp: new Date() },
@@ -68,70 +40,52 @@ export function DevMode({ commandsDirectory, generatedFile, cliName = "dev" }: D
   // Clear all entries (Ctrl+L)
   const clearEntries = useCallback(() => {
     setEntries([]);
-    persistedState.entries = [];
   }, []);
 
-  // Execute a command - always load fresh modules (bun --hot handles invalidation)
+  // Execute a command by spawning the user's entry point
   const executeCommand = useCallback(
     async (input: string) => {
       // Add command to history
       setHistory((prev) => [...prev, input]);
 
-      // Add command to output
-      addEntry("command", input);
+      // Add command to output (show with cliName prefix)
+      addEntry("command", `${cliName} ${input}`);
 
       setIsExecuting(true);
 
       try {
         const cwd = process.cwd();
-        const outputFile = path.resolve(cwd, generatedFile);
+        const entryPath = path.resolve(cwd, entryPoint);
 
-        // Dynamic import - bun --hot ensures we get fresh modules after file changes
-        // No cache busting needed - bun handles module invalidation
-        const treeModule = await import(outputFile);
-        const { createCommandsRouter } = await import("../../router.js");
-
-        const router = createCommandsRouter({
-          commandsTree: treeModule.commandsTree,
-          cliName,
-        });
-
-        // Parse the input as argv
+        // Parse input to argv
         const argv = parseInputToArgv(input);
 
-        // Add fake "bun" and "script" to match process.argv format
-        const fullArgv = ["bun", "dev", ...argv];
+        // Spawn: bun run <entry> <args...>
+        const proc = Bun.spawn(["bun", "run", entryPath, ...argv], {
+          cwd,
+          stdout: "pipe",
+          stderr: "pipe",
+          env: process.env,
+        });
 
-        // Parse route
-        const route = treeModule.parseRoute(fullArgv);
+        // Capture output
+        const stdout = await new Response(proc.stdout).text();
+        const stderr = await new Response(proc.stderr).text();
+        await proc.exited;
 
-        // Execute command
-        const result = await router.invoke(route);
-
-        // Display result
-        if (typeof result === "string") {
-          addEntry("result", result);
-        } else if (typeof result === "number") {
-          addEntry("info", `Exit code: ${result}`);
+        if (stdout.trim()) {
+          addEntry("result", stdout.trim());
         }
-        // void result = no output
+        if (stderr.trim()) {
+          addEntry("error", stderr.trim());
+        }
       } catch (error) {
-        const err = error as Error;
-
-        // For known CLI errors, show clean message + help (no stack trace)
-        if (err instanceof ParseError || err instanceof CommandNotFoundError) {
-          const helpText = err.help ? `\n${err.help}` : "";
-          addEntry("error", `${err.message}${helpText}`);
-        } else {
-          // For unexpected errors, show stack trace for debugging
-          const stack = err.stack || err.message;
-          addEntry("error", stack);
-        }
+        addEntry("error", (error as Error).message);
       } finally {
         setIsExecuting(false);
       }
     },
-    [addEntry, generatedFile, cliName]
+    [addEntry, entryPoint, cliName]
   );
 
   // Start file watcher for scaffolding and regeneration
@@ -144,17 +98,14 @@ export function DevMode({ commandsDirectory, generatedFile, cliName = "dev" }: D
       setCommandCount(count);
 
       // Start watcher - it handles scaffolding and regeneration
-      // Bun's --hot will automatically reload modules when files change
       cleanup = startWatcher({
         commandsDirectory,
         generatedFile,
-        cliName,
         onCommandsChanged: (count) => {
           setCommandCount(count);
-          // No need to manually reload - bun --hot handles it
         },
         onWatchEvent: () => {
-          // Silent reload (Option A)
+          // Silent - each command spawn will pick up latest changes
         },
         onError: (error) => {
           addEntry("error", error.message);
@@ -167,7 +118,7 @@ export function DevMode({ commandsDirectory, generatedFile, cliName = "dev" }: D
     return () => {
       if (cleanup) cleanup();
     };
-  }, [commandsDirectory, generatedFile, cliName, addEntry]);
+  }, [commandsDirectory, generatedFile, addEntry]);
 
   return (
     <Box flexDirection="column" height="100%">
@@ -184,6 +135,7 @@ export function DevMode({ commandsDirectory, generatedFile, cliName = "dev" }: D
         onClear={clearEntries}
         history={history}
         disabled={isExecuting}
+        cliName={cliName}
       />
     </Box>
   );

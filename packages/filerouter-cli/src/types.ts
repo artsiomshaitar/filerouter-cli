@@ -129,7 +129,11 @@ export interface RouterConfig<TContext = Record<string, unknown>> {
   context?: TContext;
   /** Global error handler */
   defaultOnError?: (error: Error) => void;
-  /** CLI name for help output (default: "cli") */
+  /** 
+   * CLI name for help output.
+   * If not provided, automatically reads from package.json "name" field.
+   * Falls back to "cli" if package.json cannot be found.
+   */
   cliName?: string;
   /** Whether to reject unknown flags (default: true) */
   strictFlags?: boolean;

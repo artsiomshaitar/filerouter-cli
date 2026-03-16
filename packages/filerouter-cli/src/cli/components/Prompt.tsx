@@ -6,9 +6,10 @@ export interface PromptProps {
   onClear?: () => void;
   history: string[];
   disabled?: boolean;
+  cliName: string;
 }
 
-export function Prompt({ onSubmit, onClear, history, disabled = false }: PromptProps) {
+export function Prompt({ onSubmit, onClear, history, disabled = false, cliName }: PromptProps) {
   const [input, setInput] = useState("");
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [cursorOffset, setCursorOffset] = useState(0);
@@ -131,7 +132,7 @@ export function Prompt({ onSubmit, onClear, history, disabled = false }: PromptP
   return (
     <Box>
       <Text color="green" bold>
-        {">"}{" "}
+        {">"} {cliName}{" "}
       </Text>
       {renderInputWithCursor()}
     </Box>

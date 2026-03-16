@@ -28,8 +28,6 @@ export interface GeneratorConfig {
   commandsDirectory: string;
   /** Output file path for generated commands tree */
   generatedFile: string;
-  /** CLI name for usage generation */
-  cliName?: string;
 }
 
 /**

@@ -6,7 +6,6 @@ import { commandsTree, parseRoute } from "./commandsTree.gen";
  */
 export const router = createCommandsRouter({
   commandsTree,
-  cliName: "my-cli",
   context: {
     // Add any shared context here
     // e.g., database connection, config, etc.

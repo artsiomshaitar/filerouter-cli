@@ -2,6 +2,8 @@ import type { FileCommand, ParsedRoute, Router, RouterConfig } from "./types";
 import { CommandNotFoundError, RunCommandError } from "./errors";
 import { executeCommand, executeWithLayouts, findLayoutChain } from "./context";
 import { generateCommandHelp, generateGlobalHelp, hasHelpFlag } from "./help";
+import { setCliName } from "./commandInfo";
+import { getProjectName } from "./packageJson";
 
 /**
  * Create a commands router
@@ -29,9 +31,15 @@ export function createCommandsRouter<TContext extends Record<string, unknown> = 
     commandsTree,
     context = {} as TContext,
     defaultOnError,
-    cliName = "cli",
+    cliName: explicitCliName,
     strictFlags = true,
   } = config;
+
+  // Resolve CLI name: explicit > package.json > fallback
+  const cliName = explicitCliName ?? getProjectName();
+  
+  // Sync with commandInfo() so it uses the same CLI name
+  setCliName(cliName);
 
   /**
    * Get available command paths for error messages

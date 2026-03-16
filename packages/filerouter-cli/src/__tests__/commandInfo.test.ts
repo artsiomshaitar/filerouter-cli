@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { z } from "zod";
 import { createFileCommand } from "../createFileCommand";
-import { registerCommands, commandInfo } from "../commandInfo";
+import { registerCommands, setCliName, commandInfo } from "../commandInfo";
 
 describe("commandInfo", () => {
   // Create mock commands
@@ -53,8 +53,9 @@ describe("commandInfo", () => {
   };
 
   beforeEach(() => {
-    // Register commands with CLI name
-    registerCommands(commandsTree, "test-cli");
+    // Register commands and set CLI name
+    registerCommands(commandsTree);
+    setCliName("test-cli");
   });
 
   describe("description", () => {
