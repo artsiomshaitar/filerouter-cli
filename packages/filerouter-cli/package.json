@@ -42,7 +42,7 @@
     "@types/react": "^19.0.0",
     "bun-types": "latest",
     "typescript": "^5.0.0",
-    "zod": "^3.23.0"
+    "zod": "^4.3.6"
   },
   "keywords": ["cli", "router", "file-based", "typescript", "bun"],
   "license": "MIT"
