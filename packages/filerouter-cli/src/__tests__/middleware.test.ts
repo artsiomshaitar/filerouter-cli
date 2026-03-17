@@ -1,6 +1,6 @@
-import { describe, it, expect } from "bun:test";
-import { executeMiddleware, createGuard } from "../middleware";
+import { describe, expect, it } from "bun:test";
 import { MiddlewareError } from "../errors";
+import { createGuard, executeMiddleware } from "../middleware";
 import type { Middleware } from "../types";
 
 describe("executeMiddleware", () => {
@@ -15,7 +15,7 @@ describe("executeMiddleware", () => {
   it("executes single middleware", async () => {
     const order: string[] = [];
 
-    const middleware: Middleware = async (ctx, next) => {
+    const middleware: Middleware = async (_ctx, next) => {
       order.push("middleware");
       await next();
     };
@@ -30,19 +30,19 @@ describe("executeMiddleware", () => {
   it("executes multiple middleware in order", async () => {
     const order: string[] = [];
 
-    const mw1: Middleware = async (ctx, next) => {
+    const mw1: Middleware = async (_ctx, next) => {
       order.push("mw1-start");
       await next();
       order.push("mw1-end");
     };
 
-    const mw2: Middleware = async (ctx, next) => {
+    const mw2: Middleware = async (_ctx, next) => {
       order.push("mw2-start");
       await next();
       order.push("mw2-end");
     };
 
-    const mw3: Middleware = async (ctx, next) => {
+    const mw3: Middleware = async (_ctx, next) => {
       order.push("mw3-start");
       await next();
       order.push("mw3-end");
@@ -66,17 +66,17 @@ describe("executeMiddleware", () => {
   it("middleware can short-circuit by not calling next", async () => {
     const order: string[] = [];
 
-    const mw1: Middleware = async (ctx, next) => {
+    const mw1: Middleware = async (_ctx, next) => {
       order.push("mw1");
       await next();
     };
 
-    const mw2: Middleware = async (ctx, next) => {
+    const mw2: Middleware = async (_ctx, _next) => {
       order.push("mw2-short-circuit");
       // Not calling next()
     };
 
-    const mw3: Middleware = async (ctx, next) => {
+    const mw3: Middleware = async (_ctx, next) => {
       order.push("mw3");
       await next();
     };
@@ -91,7 +91,7 @@ describe("executeMiddleware", () => {
   it("async middleware waits correctly", async () => {
     const order: string[] = [];
 
-    const slowMiddleware: Middleware = async (ctx, next) => {
+    const slowMiddleware: Middleware = async (_ctx, next) => {
       order.push("slow-start");
       await new Promise((resolve) => setTimeout(resolve, 50));
       order.push("slow-middle");
@@ -107,18 +107,18 @@ describe("executeMiddleware", () => {
   });
 
   it("wraps middleware errors in MiddlewareError", async () => {
-    const errorMiddleware: Middleware = async (ctx, next) => {
+    const errorMiddleware: Middleware = async (_ctx, _next) => {
       throw new Error("middleware error");
     };
 
-    await expect(
-      executeMiddleware([errorMiddleware], {}, async () => {})
-    ).rejects.toThrow(MiddlewareError);
+    await expect(executeMiddleware([errorMiddleware], {}, async () => {})).rejects.toThrow(
+      MiddlewareError,
+    );
   });
 
   it("MiddlewareError contains original error", async () => {
     const originalError = new Error("original");
-    const errorMiddleware: Middleware = async (ctx, next) => {
+    const errorMiddleware: Middleware = async (_ctx, _next) => {
       throw originalError;
     };
 
@@ -147,18 +147,12 @@ describe("executeMiddleware", () => {
   it("middleware can modify context", async () => {
     let finalContext: any = null;
 
-    const addUserMiddleware: Middleware<{ user?: { id: string } }> = async (
-      ctx,
-      next
-    ) => {
+    const addUserMiddleware: Middleware<{ user?: { id: string } }> = async (ctx, next) => {
       ctx.user = { id: "123" };
       await next();
     };
 
-    const checkUserMiddleware: Middleware<{ user?: { id: string } }> = async (
-      ctx,
-      next
-    ) => {
+    const checkUserMiddleware: Middleware<{ user?: { id: string } }> = async (ctx, next) => {
       finalContext = { ...ctx };
       await next();
     };
@@ -166,7 +160,7 @@ describe("executeMiddleware", () => {
     await executeMiddleware(
       [addUserMiddleware, checkUserMiddleware],
       {} as { user?: { id: string } },
-      async () => {}
+      async () => {},
     );
 
     expect(finalContext).toEqual({ user: { id: "123" } });
@@ -175,7 +169,7 @@ describe("executeMiddleware", () => {
   it("errors propagate through middleware chain", async () => {
     const order: string[] = [];
 
-    const mw1: Middleware = async (ctx, next) => {
+    const mw1: Middleware = async (_ctx, next) => {
       order.push("mw1-start");
       try {
         await next();
@@ -186,7 +180,7 @@ describe("executeMiddleware", () => {
       order.push("mw1-end");
     };
 
-    const mw2: Middleware = async (ctx, next) => {
+    const mw2: Middleware = async (_ctx, _next) => {
       order.push("mw2-throw");
       throw new Error("test error");
     };
@@ -195,7 +189,7 @@ describe("executeMiddleware", () => {
       await executeMiddleware([mw1, mw2], {}, async () => {
         order.push("handler");
       });
-    } catch (e) {
+    } catch (_e) {
       // Expected
     }
 
@@ -209,7 +203,7 @@ describe("createGuard", () => {
       async () => true,
       async () => {
         throw new Error("should not be called");
-      }
+      },
     );
 
     let handlerCalled = false;
@@ -227,7 +221,7 @@ describe("createGuard", () => {
       async () => false,
       async () => {
         onFailCalled = true;
-      }
+      },
     );
 
     await executeMiddleware([guard], {}, async () => {});
@@ -242,7 +236,7 @@ describe("createGuard", () => {
       async () => false,
       async () => {
         // Return normally, causing short-circuit
-      }
+      },
     );
 
     await executeMiddleware([guard], {}, async () => {
@@ -257,13 +251,11 @@ describe("createGuard", () => {
       async () => false,
       () => {
         throw new Error("access denied");
-      }
+      },
     );
 
     // createGuard wraps in MiddlewareError
-    await expect(
-      executeMiddleware([guard], {}, async () => {})
-    ).rejects.toThrow(MiddlewareError);
+    await expect(executeMiddleware([guard], {}, async () => {})).rejects.toThrow(MiddlewareError);
   });
 
   it("works with sync check function", async () => {
@@ -271,7 +263,7 @@ describe("createGuard", () => {
 
     const guard = createGuard(
       () => true, // Sync function
-      async () => {}
+      async () => {},
     );
 
     await executeMiddleware([guard], {}, async () => {
@@ -289,7 +281,7 @@ describe("createGuard", () => {
         receivedContext = ctx;
         return true;
       },
-      async () => {}
+      async () => {},
     );
 
     const context = { user: { role: "admin" } };
@@ -305,7 +297,7 @@ describe("createGuard", () => {
       async () => false,
       async (ctx) => {
         receivedContext = ctx;
-      }
+      },
     );
 
     const context = { user: { role: "guest" } };
@@ -317,7 +309,7 @@ describe("createGuard", () => {
   it("works in middleware chain", async () => {
     const order: string[] = [];
 
-    const logMiddleware: Middleware = async (ctx, next) => {
+    const logMiddleware: Middleware = async (_ctx, next) => {
       order.push("log-start");
       await next();
       order.push("log-end");
@@ -327,17 +319,13 @@ describe("createGuard", () => {
       async (ctx: { authenticated?: boolean }) => ctx.authenticated === true,
       () => {
         order.push("auth-failed");
-      }
+      },
     );
 
     // Test with authenticated user
-    await executeMiddleware(
-      [logMiddleware, authGuard],
-      { authenticated: true },
-      async () => {
-        order.push("handler");
-      }
-    );
+    await executeMiddleware([logMiddleware, authGuard], { authenticated: true }, async () => {
+      order.push("handler");
+    });
 
     expect(order).toEqual(["log-start", "handler", "log-end"]);
 
@@ -345,13 +333,9 @@ describe("createGuard", () => {
     // When guard fails and returns (doesn't throw), the middleware chain continues to unwind
     // because createGuard returns early but logMiddleware still completes its "after" phase
     order.length = 0;
-    await executeMiddleware(
-      [logMiddleware, authGuard],
-      { authenticated: false },
-      async () => {
-        order.push("handler");
-      }
-    );
+    await executeMiddleware([logMiddleware, authGuard], { authenticated: false }, async () => {
+      order.push("handler");
+    });
 
     // logMiddleware wraps authGuard, so when authGuard returns early (short-circuits),
     // logMiddleware's "log-end" still runs
@@ -368,7 +352,7 @@ describe("createGuard", () => {
       },
       async () => {
         order.push("auth-fail");
-      }
+      },
     );
 
     const roleGuard = createGuard(
@@ -378,7 +362,7 @@ describe("createGuard", () => {
       },
       async () => {
         order.push("role-fail");
-      }
+      },
     );
 
     await executeMiddleware([authGuard, roleGuard], {}, async () => {
@@ -398,7 +382,7 @@ describe("createGuard", () => {
       },
       async () => {
         order.push("auth-fail");
-      }
+      },
     );
 
     const roleGuard = createGuard(
@@ -408,7 +392,7 @@ describe("createGuard", () => {
       },
       async () => {
         order.push("role-fail");
-      }
+      },
     );
 
     await executeMiddleware([authGuard, roleGuard], {}, async () => {

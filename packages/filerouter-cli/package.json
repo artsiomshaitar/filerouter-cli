@@ -1,6 +1,17 @@
 {
   "name": "filerouter-cli",
   "version": "0.1.0-alpha.1",
+  "description": "A file-based routing framework for building CLI applications with TypeScript",
+  "author": "Artsiom Shaitar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artsiomshaitar/filerouter-cli.git",
+    "directory": "packages/filerouter-cli"
+  },
+  "homepage": "https://github.com/artsiomshaitar/filerouter-cli#readme",
+  "bugs": {
+    "url": "https://github.com/artsiomshaitar/filerouter-cli/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

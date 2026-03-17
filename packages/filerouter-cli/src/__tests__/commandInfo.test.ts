@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { beforeEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
+import { commandInfo, registerCommands, setCliName } from "../commandInfo";
 import { createFileCommand } from "../createFileCommand";
-import { registerCommands, setCliName, commandInfo } from "../commandInfo";
 
 describe("commandInfo", () => {
   // Create mock commands
@@ -85,9 +85,7 @@ describe("commandInfo", () => {
   describe("usage()", () => {
     it("returns command with args", () => {
       const info = commandInfo("/auth" as any);
-      expect(info.usage()).toBe(
-        "test-cli auth --username <string> --password <string>"
-      );
+      expect(info.usage()).toBe("test-cli auth --username <string> --password <string>");
     });
 
     it("shows optional args with brackets", () => {

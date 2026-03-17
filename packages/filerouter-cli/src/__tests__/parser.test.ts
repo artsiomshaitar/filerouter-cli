@@ -1,16 +1,16 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
+import { ParseError } from "../errors";
 import {
-  parseRawArgs,
+  expandAliases,
   extractBooleanFlags,
+  extractValidFlags,
+  formatUnknownFlagsError,
+  parseRawArgs,
+  suggestSimilarFlags,
   validateArgs,
   validateParams,
-  expandAliases,
-  extractValidFlags,
-  suggestSimilarFlags,
-  formatUnknownFlagsError,
 } from "../parser";
-import { ParseError } from "../errors";
 
 describe("parseRawArgs", () => {
   describe("basic flags", () => {
@@ -542,7 +542,7 @@ describe("suggestSimilarFlags", () => {
 
   it("suggests prefix matches", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     // "fil" is a prefix of "filter"
     const result = suggestSimilarFlags("fil", validFlags);
     expect(result.suggestions.length).toBe(1);
@@ -551,7 +551,7 @@ describe("suggestSimilarFlags", () => {
 
   it("suggests single-char prefix matches", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     // "f" is a prefix of "filter"
     const result = suggestSimilarFlags("f", validFlags);
     expect(result.suggestions.length).toBe(1);
@@ -560,7 +560,7 @@ describe("suggestSimilarFlags", () => {
 
   it("suggests typo corrections via edit distance", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     // "fitler" is a typo of "filter" (transposition)
     const result = suggestSimilarFlags("fitler", validFlags);
     expect(result.suggestions.length).toBe(1);
@@ -569,7 +569,7 @@ describe("suggestSimilarFlags", () => {
 
   it("suggests verboes -> verbose (typo)", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     const result = suggestSimilarFlags("verboes", validFlags);
     expect(result.suggestions.length).toBe(1);
     expect(result.suggestions[0].canonical).toBe("verbose");
@@ -577,7 +577,7 @@ describe("suggestSimilarFlags", () => {
 
   it("returns no suggestions for completely different flags", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     // "xyz" is completely different
     const result = suggestSimilarFlags("xyz", validFlags);
     expect(result.suggestions.length).toBe(0);
@@ -585,7 +585,7 @@ describe("suggestSimilarFlags", () => {
 
   it("returns no suggestions for 'fu' (not a prefix of filter)", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     // "fu" is not a prefix of any flag and too different
     const result = suggestSimilarFlags("fu", validFlags);
     expect(result.suggestions.length).toBe(0);
@@ -593,7 +593,7 @@ describe("suggestSimilarFlags", () => {
 
   it("includes aliases info in suggestions", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    
+
     const result = suggestSimilarFlags("fil", validFlags);
     expect(result.suggestions[0].aliases).toContain("f");
   });
@@ -609,7 +609,7 @@ describe("formatUnknownFlagsError", () => {
   it("formats error with suggestion for prefix match", () => {
     const validFlags = extractValidFlags(schema, aliases);
     const { message, help } = formatUnknownFlagsError(["fil"], validFlags);
-    
+
     expect(message).toBe("Unknown flag: --fil");
     expect(help).toContain("Did you mean");
     expect(help).toContain("--filter");
@@ -618,7 +618,7 @@ describe("formatUnknownFlagsError", () => {
   it("formats error with available flags when no suggestions", () => {
     const validFlags = extractValidFlags(schema, aliases);
     const { message, help } = formatUnknownFlagsError(["xyz"], validFlags);
-    
+
     expect(message).toBe("Unknown flag: --xyz");
     expect(help).toContain("Available flags:");
     expect(help).toContain("--filter");
@@ -627,8 +627,8 @@ describe("formatUnknownFlagsError", () => {
 
   it("handles multiple unknown flags", () => {
     const validFlags = extractValidFlags(schema, aliases);
-    const { message, help } = formatUnknownFlagsError(["xyz", "abc"], validFlags);
-    
+    const { message } = formatUnknownFlagsError(["xyz", "abc"], validFlags);
+
     expect(message).toBe("Unknown flags: --xyz, --abc");
   });
 });
@@ -639,9 +639,9 @@ describe("validateArgs with strictFlags", () => {
       filter: z.string().optional(),
     });
     const aliases = { filter: ["f"] };
-    
+
     expect(() => validateArgs({ unknown: "value" }, schema, aliases)).toThrow(ParseError);
-    
+
     try {
       validateArgs({ unknown: "value" }, schema, aliases);
     } catch (e) {
@@ -657,7 +657,7 @@ describe("validateArgs with strictFlags", () => {
       filter: z.string().optional(),
     });
     const aliases = { filter: ["f"] };
-    
+
     try {
       validateArgs({ fil: "value" }, schema, aliases);
     } catch (e) {
@@ -671,7 +671,7 @@ describe("validateArgs with strictFlags", () => {
     const schema = z.object({
       filter: z.string().optional(),
     });
-    
+
     // Should not throw - unknown flags are allowed
     const result = validateArgs({ unknown: "value" }, schema, undefined, { strictFlags: false });
     expect(result).toEqual({}); // Zod strips unknown keys by default
@@ -682,7 +682,7 @@ describe("validateArgs with strictFlags", () => {
       filter: z.string().optional(),
     });
     const aliases = { filter: ["f"] };
-    
+
     // Should not throw
     const result = validateArgs({ filter: "test" }, schema, aliases);
     expect(result).toEqual({ filter: "test" });
@@ -693,7 +693,7 @@ describe("validateArgs with strictFlags", () => {
       filter: z.string().optional(),
     });
     const aliases = { filter: ["f"] };
-    
+
     // Should not throw - "f" is a valid alias
     const result = validateArgs({ f: "test" }, schema, aliases);
     expect(result).toEqual({ filter: "test" });
@@ -705,7 +705,7 @@ describe("validateArgs with strictFlags", () => {
       verbose: z.boolean().optional(),
     });
     const aliases = { filter: ["f"], verbose: ["v"] };
-    
+
     try {
       validateArgs({ xyz: "value" }, schema, aliases);
     } catch (e) {
@@ -720,7 +720,7 @@ describe("validateArgs with strictFlags", () => {
     const schema = z.object({
       filter: z.string().optional(),
     });
-    
+
     try {
       validateArgs({ foo: "a", bar: "b" }, schema);
     } catch (e) {

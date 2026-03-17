@@ -1,12 +1,12 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
+import { createFileCommand } from "../createFileCommand";
 import {
+  extractFieldsFromZodSchema,
   generateCommandHelp,
   generateGlobalHelp,
   hasHelpFlag,
-  extractFieldsFromZodSchema,
 } from "../help";
-import { createFileCommand } from "../createFileCommand";
 import type { FileCommand } from "../types";
 
 describe("generateCommandHelp", () => {
@@ -113,11 +113,7 @@ describe("generateCommandHelp", () => {
       handler: async () => {},
     });
 
-    const help = generateCommandHelp(
-      command,
-      "cli",
-      "/users/$userId/posts/$postId"
-    );
+    const help = generateCommandHelp(command, "cli", "/users/$userId/posts/$postId");
 
     expect(help).toContain("<userId>");
     expect(help).toContain("User identifier");

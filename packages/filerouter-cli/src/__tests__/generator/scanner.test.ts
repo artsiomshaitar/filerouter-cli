@@ -1,12 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile } from "fs/promises";
-import { join } from "path";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
-import {
-  scanCommands,
-  routePathToVarName,
-  routePathToCliCommand,
-} from "../../generator/scanner";
+import { join } from "path";
+import { routePathToCliCommand, routePathToVarName, scanCommands } from "../../generator/scanner";
 
 describe("scanCommands", () => {
   let tempDir: string;
@@ -259,9 +255,7 @@ describe("scanCommands", () => {
       await createFile("add/$.ts");
       await createFile("add/$/child.ts"); // Invalid: child of splat
 
-      await expect(scanCommands(tempDir)).rejects.toThrow(
-        /Splat route.*cannot have child routes/
-      );
+      await expect(scanCommands(tempDir)).rejects.toThrow(/Splat route.*cannot have child routes/);
     });
 
     it("allows sibling routes next to splat", async () => {
@@ -350,9 +344,7 @@ describe("routePathToVarName", () => {
   });
 
   it("/users/$userId/posts/$postId -> UsersUserIdPostsPostId", () => {
-    expect(routePathToVarName("/users/$userId/posts/$postId")).toBe(
-      "UsersUserIdPostsPostId"
-    );
+    expect(routePathToVarName("/users/$userId/posts/$postId")).toBe("UsersUserIdPostsPostId");
   });
 
   it("capitalizes first letter of each segment", () => {
@@ -384,7 +376,7 @@ describe("routePathToCliCommand", () => {
 
   it("/users/$userId/posts/$postId -> users <userId> posts <postId>", () => {
     expect(routePathToCliCommand("/users/$userId/posts/$postId")).toBe(
-      "users <userId> posts <postId>"
+      "users <userId> posts <postId>",
     );
   });
 

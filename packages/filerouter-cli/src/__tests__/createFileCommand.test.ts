@@ -1,7 +1,7 @@
-import { describe, it, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
 import { createFileCommand } from "../createFileCommand";
-import type { FileCommand, Middleware } from "../types";
+import type { Middleware } from "../types";
 
 describe("createFileCommand", () => {
   describe("basic command creation", () => {
@@ -259,7 +259,7 @@ describe("createFileCommand", () => {
 
   describe("middleware option", () => {
     it("accepts single middleware", () => {
-      const middleware: Middleware = async (ctx, next) => {
+      const middleware: Middleware = async (_ctx, next) => {
         await next();
       };
 
@@ -274,9 +274,9 @@ describe("createFileCommand", () => {
     });
 
     it("accepts multiple middleware", () => {
-      const mw1: Middleware = async (ctx, next) => await next();
-      const mw2: Middleware = async (ctx, next) => await next();
-      const mw3: Middleware = async (ctx, next) => await next();
+      const mw1: Middleware = async (_ctx, next) => await next();
+      const mw2: Middleware = async (_ctx, next) => await next();
+      const mw3: Middleware = async (_ctx, next) => await next();
 
       const command = createFileCommand("/test")({
         description: "Test",
@@ -328,12 +328,12 @@ describe("createFileCommand", () => {
 
   describe("handler option", () => {
     it("handler receives correct context properties", async () => {
-      let receivedContext: any = null;
+      let _receivedContext: any = null;
 
       const command = createFileCommand("/test")({
         description: "Test",
         handler: async (ctx) => {
-          receivedContext = ctx;
+          _receivedContext = ctx;
           return "done";
         },
       });
@@ -382,7 +382,7 @@ describe("createFileCommand", () => {
         projectId: z.string().min(1),
       });
 
-      const authMiddleware: Middleware = async (ctx, next) => {
+      const authMiddleware: Middleware = async (_ctx, next) => {
         await next();
       };
 

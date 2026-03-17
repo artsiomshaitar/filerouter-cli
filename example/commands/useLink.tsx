@@ -1,5 +1,5 @@
 import { createFileCommand } from "filerouter-cli";
-import { render, Text, Box } from "ink";
+import { Box, render, Text } from "ink";
 
 // my-cli useLink
 // Example showing framework-agnostic nature - you can use any rendering library
@@ -14,12 +14,9 @@ export const Command = createFileCommand("/useLink")({
           Hello from Ink!
         </Text>
         <Text>
-          This demonstrates that filerouter-cli is{" "}
-          <Text color="cyan">framework agnostic</Text>.
+          This demonstrates that filerouter-cli is <Text color="cyan">framework agnostic</Text>.
         </Text>
-        <Text dimColor>
-          You can use Ink, Blessed, or any other terminal UI library.
-        </Text>
+        <Text dimColor>You can use Ink, Blessed, or any other terminal UI library.</Text>
       </Box>,
     );
   },

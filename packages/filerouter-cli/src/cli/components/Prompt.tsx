@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from "react";
 import { Box, Text, useInput } from "ink";
+import { useState } from "react";
 
 export interface PromptProps {
   onSubmit: (input: string) => void;
@@ -108,7 +108,7 @@ export function Prompt({ onSubmit, onClear, history, disabled = false, cliName }
         setInput(input.slice(0, pos) + inputChar + input.slice(pos));
       }
     },
-    { isActive: !disabled }
+    { isActive: !disabled },
   );
 
   // Render cursor by inserting a visible marker

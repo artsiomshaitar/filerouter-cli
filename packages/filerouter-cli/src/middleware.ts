@@ -1,5 +1,5 @@
+import { MiddlewareError, toError } from "./errors";
 import type { Middleware } from "./types";
-import { MiddlewareError } from "./errors";
 
 /**
  * Execute a chain of middleware functions
@@ -11,7 +11,7 @@ import { MiddlewareError } from "./errors";
 export async function executeMiddleware<TContext>(
   middleware: Middleware<TContext>[],
   context: TContext,
-  finalHandler: () => Promise<void>
+  finalHandler: () => Promise<void>,
 ): Promise<void> {
   let index = 0;
 
@@ -22,10 +22,8 @@ export async function executeMiddleware<TContext>(
       try {
         await currentMiddleware(context, next);
       } catch (error) {
-        throw new MiddlewareError(
-          `Middleware error: ${(error as Error).message}`,
-          error as Error
-        );
+        const err = toError(error);
+        throw new MiddlewareError(`Middleware error: ${err.message}`, err);
       }
     } else {
       // All middleware executed, run the final handler
@@ -49,7 +47,7 @@ export async function executeMiddleware<TContext>(
  */
 export function createGuard<TContext>(
   check: (context: TContext) => boolean | Promise<boolean>,
-  onFail: (context: TContext) => void | never
+  onFail: (context: TContext) => void | never,
 ): Middleware<TContext> {
   return async (context, next) => {
     const passed = await check(context);

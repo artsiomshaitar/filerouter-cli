@@ -1,18 +1,9 @@
-import { describe, it, expect } from "bun:test";
-import {
-  ParseError,
-  RunCommandError,
-  CommandNotFoundError,
-  MiddlewareError,
-} from "../errors";
+import { describe, expect, it } from "bun:test";
+import { CommandNotFoundError, MiddlewareError, ParseError, RunCommandError } from "../errors";
 
 describe("ParseError", () => {
   it("creates error with message, help, and code", () => {
-    const error = new ParseError(
-      "Invalid argument",
-      "Check the argument format",
-      "INVALID_ARG"
-    );
+    const error = new ParseError("Invalid argument", "Check the argument format", "INVALID_ARG");
 
     expect(error.message).toBe("Invalid argument");
     expect(error.help).toBe("Check the argument format");
@@ -35,7 +26,7 @@ describe("ParseError", () => {
       const error = new ParseError(
         "Unknown command: foo",
         "Available: bar, baz",
-        "UNKNOWN_COMMAND"
+        "UNKNOWN_COMMAND",
       );
       expect(error.code).toBe("UNKNOWN_COMMAND");
     });
@@ -44,7 +35,7 @@ describe("ParseError", () => {
       const error = new ParseError(
         "Missing required argument: --name",
         "Provide --name value",
-        "MISSING_ARG"
+        "MISSING_ARG",
       );
       expect(error.code).toBe("MISSING_ARG");
     });
@@ -53,7 +44,7 @@ describe("ParseError", () => {
       const error = new ParseError(
         "Invalid argument: --count must be a number",
         "Provide a valid number",
-        "INVALID_ARG"
+        "INVALID_ARG",
       );
       expect(error.code).toBe("INVALID_ARG");
     });
@@ -62,7 +53,7 @@ describe("ParseError", () => {
       const error = new ParseError(
         "Missing parameter: projectId",
         "Provide a project ID",
-        "MISSING_PARAM"
+        "MISSING_PARAM",
       );
       expect(error.code).toBe("MISSING_PARAM");
     });
@@ -71,17 +62,13 @@ describe("ParseError", () => {
       const error = new ParseError(
         "Invalid parameter: projectId",
         "Provide a valid project ID",
-        "INVALID_PARAM"
+        "INVALID_PARAM",
       );
       expect(error.code).toBe("INVALID_PARAM");
     });
 
     it("supports VALIDATION_ERROR code", () => {
-      const error = new ParseError(
-        "Validation failed",
-        "Check input format",
-        "VALIDATION_ERROR"
-      );
+      const error = new ParseError("Validation failed", "Check input format", "VALIDATION_ERROR");
       expect(error.code).toBe("VALIDATION_ERROR");
     });
   });

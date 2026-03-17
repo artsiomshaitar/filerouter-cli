@@ -1,4 +1,4 @@
-import { createFileCommand, commandInfo } from "filerouter-cli";
+import { commandInfo, createFileCommand } from "filerouter-cli";
 import { authMiddleware } from "../../utils/auth";
 
 export const Command = createFileCommand("/_auth")({

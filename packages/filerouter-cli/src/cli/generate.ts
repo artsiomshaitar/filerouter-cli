@@ -1,6 +1,6 @@
-import * as path from "path";
 import * as fs from "fs";
-import { scanCommands, generateCommandsTree } from "../generator";
+import * as path from "path";
+import { generateCommandsTree, scanCommands } from "../generator";
 
 export interface GenerateOptions {
   commandsDirectory: string;

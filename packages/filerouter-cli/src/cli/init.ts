@@ -30,10 +30,7 @@ export async function runInit(options: InitOptions): Promise<void> {
   console.log(`Creating new filerouter-cli project: ${projectName}\n`);
 
   // Create project structure
-  const dirs = [
-    projectDir,
-    path.join(projectDir, "commands"),
-  ];
+  const dirs = [projectDir, path.join(projectDir, "commands")];
 
   for (const dir of dirs) {
     fs.mkdirSync(dir, { recursive: true });
@@ -110,7 +107,7 @@ function generatePackageJson(projectName: string): string {
       typescript: "^5.0.0",
     },
   };
-  return JSON.stringify(pkg, null, 2) + "\n";
+  return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
 function generateTsConfig(): string {
@@ -128,7 +125,7 @@ function generateTsConfig(): string {
     include: ["**/*.ts"],
     exclude: ["node_modules", "dist"],
   };
-  return JSON.stringify(config, null, 2) + "\n";
+  return `${JSON.stringify(config, null, 2)}\n`;
 }
 
 function generateMainTs(): string {
@@ -143,7 +140,7 @@ const router = createCommandsRouter({
   // context: { db: database, config: appConfig },
 });
 
-await router.run(process.argv);
+await router.run(process.argv).catch(() => process.exit(1));
 `;
 }
 

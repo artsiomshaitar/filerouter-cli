@@ -1,11 +1,11 @@
-import { describe, it, expect, mock, spyOn, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { createCommandsRouter } from "../router";
 import { createFileCommand } from "../createFileCommand";
+import { ParseError } from "../errors";
+import { createParseRoute, type RouteTable } from "../parseRoute";
+import { createCommandsRouter } from "../router";
 import { runCommand } from "../runCommand";
 import type { FileCommand, ParsedRoute } from "../types";
-import { createParseRoute, type RouteTable } from "../parseRoute";
-import { RunCommandError, ParseError } from "../errors";
 
 // Helper to create test commands tree
 function createTestTree(): Record<string, FileCommand<any, any, any, any>> {
@@ -82,27 +82,39 @@ function createTestTree(): Record<string, FileCommand<any, any, any, any>> {
 function createTestRouteTable(): RouteTable {
   return {
     staticRoutes: {
-      "auth": "/auth",
-      "list": "/list",
-      "error": "/error",
+      auth: "/auth",
+      list: "/list",
+      error: "/error",
       "error-handled": "/error-handled",
-      "exit": "/exit",
-      "void": "/void",
+      exit: "/exit",
+      void: "/void",
       "runcommand-source": "/runcommand-source",
-      "child": "/_layout/child",
+      child: "/_layout/child",
     },
     dynamicRoutes: [
-      { segments: ["projects", "$projectId"], path: "/projects/$projectId", paramIndices: { projectId: 1 } },
+      {
+        segments: ["projects", "$projectId"],
+        path: "/projects/$projectId",
+        paramIndices: { projectId: 1 },
+      },
     ],
-    splatRoutes: [
-      { parentSegments: ["add"], path: "/add/$" },
+    splatRoutes: [{ parentSegments: ["add"], path: "/add/$" }],
+    availableCommands: [
+      "auth",
+      "list",
+      "projects <projectId>",
+      "add <items...>",
+      "error",
+      "exit",
+      "void",
     ],
-    availableCommands: ["auth", "list", "projects <projectId>", "add <items...>", "error", "exit", "void"],
   };
 }
 
 // Helper to create a test router
-function createTestRouter(options: { context?: any; cliName?: string; defaultOnError?: (err: Error) => void } = {}) {
+function createTestRouter(
+  options: { context?: any; cliName?: string; defaultOnError?: (err: Error) => void } = {},
+) {
   const tree = createTestTree();
   const routeTable = createTestRouteTable();
   const parseRoute = createParseRoute(tree, routeTable);
@@ -189,7 +201,7 @@ describe("createCommandsRouter", () => {
         createRoute({
           path: "/auth",
           args: { username: "testuser" },
-        })
+        }),
       );
       expect(result).toBe("auth: testuser");
     });
@@ -200,7 +212,7 @@ describe("createCommandsRouter", () => {
         createRoute({
           path: "/projects/$projectId",
           params: { projectId: "proj_123" },
-        })
+        }),
       );
       expect(result).toBe("project: proj_123");
     });
@@ -211,23 +223,19 @@ describe("createCommandsRouter", () => {
         createRoute({
           path: "/add/$",
           params: { _splat: ["typescript", "react", "zod"] },
-        })
+        }),
       );
       expect(result).toBe("adding: typescript, react, zod");
     });
 
     it("throws error for unknown command", async () => {
       const router = createTestRouter();
-      await expect(
-        router.invoke(createRoute({ path: "/unknown" }))
-      ).rejects.toThrow();
+      await expect(router.invoke(createRoute({ path: "/unknown" }))).rejects.toThrow();
     });
 
     it("propagates handler errors", async () => {
       const router = createTestRouter();
-      await expect(
-        router.invoke(createRoute({ path: "/error" }))
-      ).rejects.toThrow("command error");
+      await expect(router.invoke(createRoute({ path: "/error" }))).rejects.toThrow("command error");
     });
   });
 
@@ -302,9 +310,7 @@ describe("createCommandsRouter", () => {
   describe("runCommand handling", () => {
     it("follows runCommand to another command", async () => {
       const router = createTestRouter();
-      const result = await router.invoke(
-        createRoute({ path: "/runcommand-source" })
-      );
+      const result = await router.invoke(createRoute({ path: "/runcommand-source" }));
       expect(result).toBe("auth: redirected");
     });
 
@@ -325,7 +331,7 @@ describe("createCommandsRouter", () => {
       };
 
       const routeTable: RouteTable = {
-        staticRoutes: { "source": "/source", "target": "/target" },
+        staticRoutes: { source: "/source", target: "/target" },
         dynamicRoutes: [],
         splatRoutes: [],
         availableCommands: ["source", "target"],
@@ -344,9 +350,7 @@ describe("createCommandsRouter", () => {
   describe("layout handling", () => {
     it("wraps child with layout", async () => {
       const router = createTestRouter();
-      const result = await router.invoke(
-        createRoute({ path: "/_layout/child" })
-      );
+      const result = await router.invoke(createRoute({ path: "/_layout/child" }));
 
       expect(result).toBe("[layout]child content[/layout]");
     });
@@ -367,7 +371,7 @@ describe("createCommandsRouter", () => {
       };
 
       const routeTable: RouteTable = {
-        staticRoutes: { "test": "/test" },
+        staticRoutes: { test: "/test" },
         dynamicRoutes: [],
         splatRoutes: [],
         availableCommands: ["test"],
@@ -393,19 +397,35 @@ describe("createCommandsRouter", () => {
       expect(logOutput).toContain("root output");
     });
 
-    it("handles number result (exit code)", async () => {
+    it("handles number result (exit code) via invoke", async () => {
       const router = createTestRouter();
-      // For run(), number result should call process.exit
-      // We can't easily test process.exit, so we test invoke() instead
       const result = await router.invoke(createRoute({ path: "/exit" }));
       expect(result).toBe(42);
+    });
+
+    it("does not print or exit for number result via run", async () => {
+      const router = createTestRouter();
+      await router.run(["node", "cli", "exit"]);
+      // Number results should not be printed
+      expect(logOutput).toHaveLength(0);
     });
 
     it("handles void result (no output)", async () => {
       const router = createTestRouter();
       await router.run(["node", "cli", "void"]);
-      // No output should be logged
       expect(logOutput).toHaveLength(0);
+    });
+
+    it("re-throws parse errors from run() instead of calling process.exit", async () => {
+      const router = createTestRouter();
+      await expect(router.run(["node", "cli", "nonexistent-command"])).rejects.toThrow(ParseError);
+      expect(errorOutput.join(" ")).toContain("Unknown command");
+    });
+
+    it("re-throws unhandled command errors from run()", async () => {
+      const router = createTestRouter();
+      await expect(router.run(["node", "cli", "error"])).rejects.toThrow("command error");
+      expect(errorOutput.join(" ")).toContain("Unexpected error");
     });
   });
 
@@ -416,7 +436,7 @@ describe("createCommandsRouter", () => {
         createRoute({
           path: "/list",
           args: { v: true },
-        })
+        }),
       );
 
       expect(result).toBe("list (verbose: true)");
@@ -424,10 +444,7 @@ describe("createCommandsRouter", () => {
   });
 });
 
-// Note: The current router implementation does not have runCommand loop prevention.
-// This test is skipped to avoid infinite loops during testing.
-// If loop prevention is added, this test can be enabled.
-describe.skip("runCommand loop prevention", () => {
+describe("runCommand loop prevention", () => {
   it("detects and prevents infinite runCommand loops", async () => {
     const loopTree: Record<string, FileCommand<any, any, any, any>> = {
       "/a": createFileCommand("/a")({
@@ -441,7 +458,7 @@ describe.skip("runCommand loop prevention", () => {
     };
 
     const routeTable: RouteTable = {
-      staticRoutes: { "a": "/a", "b": "/b" },
+      staticRoutes: { a: "/a", b: "/b" },
       dynamicRoutes: [],
       splatRoutes: [],
       availableCommands: ["a", "b"],
@@ -452,10 +469,61 @@ describe.skip("runCommand loop prevention", () => {
       parseRoute: createParseRoute(loopTree, routeTable),
     });
 
-    // The router should have some protection against infinite loops
-    // This might throw or timeout - implementation dependent
-    await expect(
-      router.invoke(createRoute({ path: "/a" }))
-    ).rejects.toThrow();
+    await expect(router.invoke(createRoute({ path: "/a" }))).rejects.toThrow(/cycle detected/);
+  });
+
+  it("detects self-redirect loops", async () => {
+    const loopTree: Record<string, FileCommand<any, any, any, any>> = {
+      "/self": createFileCommand("/self")({
+        description: "Self",
+        handler: async () => runCommand("/self" as any),
+      }),
+    };
+
+    const routeTable: RouteTable = {
+      staticRoutes: { self: "/self" },
+      dynamicRoutes: [],
+      splatRoutes: [],
+      availableCommands: ["self"],
+    };
+
+    const router = createCommandsRouter({
+      commandsTree: loopTree,
+      parseRoute: createParseRoute(loopTree, routeTable),
+    });
+
+    await expect(router.invoke(createRoute({ path: "/self" }))).rejects.toThrow(/cycle detected/);
+  });
+
+  it("allows valid redirect chains (A -> B -> C)", async () => {
+    const chainTree: Record<string, FileCommand<any, any, any, any>> = {
+      "/a": createFileCommand("/a")({
+        description: "A",
+        handler: async () => runCommand("/b"),
+      }),
+      "/b": createFileCommand("/b")({
+        description: "B",
+        handler: async () => runCommand("/c"),
+      }),
+      "/c": createFileCommand("/c")({
+        description: "C",
+        handler: async () => "reached C",
+      }),
+    };
+
+    const routeTable: RouteTable = {
+      staticRoutes: { a: "/a", b: "/b", c: "/c" },
+      dynamicRoutes: [],
+      splatRoutes: [],
+      availableCommands: ["a", "b", "c"],
+    };
+
+    const router = createCommandsRouter({
+      commandsTree: chainTree,
+      parseRoute: createParseRoute(chainTree, routeTable),
+    });
+
+    const result = await router.invoke(createRoute({ path: "/a" }));
+    expect(result).toBe("reached C");
   });
 });

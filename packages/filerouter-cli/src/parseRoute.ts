@@ -1,6 +1,24 @@
-import type { FileCommand, ParsedRoute } from "./types";
 import { ParseError } from "./errors";
-import { parseRawArgs, extractBooleanFlags } from "./parser";
+import { extractBooleanFlags, parseRawArgs } from "./parser";
+import type { FileCommand, ParsedRoute } from "./types";
+
+/**
+ * Extract param names from a route path.
+ *
+ * @example
+ * extractRouteParams("/list/$projectId") // ["projectId"]
+ * extractRouteParams("/add/$")           // ["_splat"]
+ * extractRouteParams("/static")          // []
+ */
+export function extractRouteParams(routePath: string): string[] {
+  const params: string[] = [];
+  for (const segment of routePath.split("/")) {
+    if (segment.startsWith("$")) {
+      params.push(segment.slice(1) || "_splat");
+    }
+  }
+  return params;
+}
 
 /**
  * Route table containing all route data for matching
@@ -31,11 +49,11 @@ interface RouteMatch {
 
 /**
  * Match positional arguments to a route
- * 
+ *
  * Uses greedy matching: tries longest match first, then shorter prefixes.
  * This allows commands like `add -D typescript` where `add` is the command
  * and `typescript` is an extra positional arg (not part of the route).
- * 
+ *
  * Splat routes ($.ts) match LAST and capture remaining positional args.
  */
 function matchRoute(positional: string[], routeTable: RouteTable): RouteMatch {
@@ -50,11 +68,11 @@ function matchRoute(positional: string[], routeTable: RouteTable): RouteMatch {
   // Try matching from longest prefix to shortest
   for (let len = numPositional; len >= 1; len--) {
     const prefix = positional.slice(0, len);
-    const normalizedPrefix = "/" + prefix.join("/").toLowerCase();
+    const normalizedPrefix = `/${prefix.join("/").toLowerCase()}`;
 
     // Check static routes
     for (const [cliPath, routePath] of Object.entries(staticRoutes)) {
-      if (normalizedPrefix === "/" + cliPath.toLowerCase()) {
+      if (normalizedPrefix === `/${cliPath.toLowerCase()}`) {
         return { path: routePath, params: {} };
       }
     }
@@ -87,7 +105,7 @@ function matchRoute(positional: string[], routeTable: RouteTable): RouteMatch {
   // Splat routes (lowest priority) - capture remaining args
   // Sort by specificity (longest parent first)
   const sortedSplatRoutes = [...splatRoutes].sort(
-    (a, b) => b.parentSegments.length - a.parentSegments.length
+    (a, b) => b.parentSegments.length - a.parentSegments.length,
   );
 
   for (const splat of sortedSplatRoutes) {
@@ -117,21 +135,21 @@ function matchRoute(positional: string[], routeTable: RouteTable): RouteMatch {
   throw new ParseError(
     `Unknown command: ${positional.join(" ")}`,
     `Available commands:\n${availableCommands.map((c) => `  ${c}`).join("\n")}`,
-    "UNKNOWN_COMMAND"
+    "UNKNOWN_COMMAND",
   );
 }
 
 /**
  * Create a parseRoute function for a specific commands tree and route table
- * 
+ *
  * @example
  * ```ts
  * // In generated commandsTree.gen.ts
  * import { createParseRoute } from 'filerouter-cli';
- * 
+ *
  * const routeTable = { ... };  // Generated route data
  * export const parseRoute = createParseRoute(commandsTree, routeTable);
- * 
+ *
  * // In main.ts
  * const route = parseRoute(process.argv);
  * await router.run(route);
@@ -139,7 +157,7 @@ function matchRoute(positional: string[], routeTable: RouteTable): RouteMatch {
  */
 export function createParseRoute(
   commandsTree: Record<string, FileCommand<any, any, any, any>>,
-  routeTable: RouteTable
+  routeTable: RouteTable,
 ): (argv: string[]) => ParsedRoute {
   return (argv: string[]): ParsedRoute => {
     // Remove 'bun'/'node' and script path

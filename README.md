@@ -1,7 +1,10 @@
 # filerouter-cli
 
-> **⚠️ Work in Progress**  
-> This project is under active development. APIs may change without notice. Not recommended for production use yet.
+[![CI](https://github.com/artsiomshaitar/filerouter-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/artsiomshaitar/filerouter-cli/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/filerouter-cli)](https://www.npmjs.com/package/filerouter-cli)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+> **Work in Progress** — This project is under active development. APIs may change without notice.
 
 A file-based routing framework for building CLI applications with TypeScript. Inspired by [TanStack Router](https://tanstack.com/router) conventions.
 

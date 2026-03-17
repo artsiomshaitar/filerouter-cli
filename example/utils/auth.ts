@@ -3,7 +3,7 @@ import type { Middleware } from "filerouter-cli";
 /**
  * Simulated login function
  */
-export async function login(username: string, password: string) {
+export async function login(username: string, _password: string) {
   // Simulate API call
   await new Promise((resolve) => setTimeout(resolve, 100));
 
@@ -28,7 +28,7 @@ export function isAuthenticated(): boolean {
  * Authentication middleware
  * Throws an error if not authenticated
  */
-export const authMiddleware: Middleware = async (context, next) => {
+export const authMiddleware: Middleware = async (_context, next) => {
   if (!isAuthenticated()) {
     throw new Error("Not authenticated. Please run: my-cli auth");
   }

@@ -58,36 +58,39 @@ export async function scanCommands(commandsDir: string): Promise<ScanResult> {
  * Throws an error if a splat route has children
  */
 function validateSplatRoutes(commands: ScannedCommand[]): void {
-  const splatRoutes = commands.filter(c => c.isSplat);
-  
+  const splatRoutes = commands.filter((c) => c.isSplat);
+
   for (const splat of splatRoutes) {
     // Get the parent path (route path without the trailing /$)
     const parentPath = splat.routePath.replace(/\/\$$/, "") || "/";
-    
+
     // Check if any other command is a child of this splat's parent
     // e.g., if splat is /add/$, check for /add/something
     for (const cmd of commands) {
       if (cmd === splat) continue;
-      
+
       // A command is a child if it starts with the parent path + /
       // and is not the splat itself
-      const isChild = parentPath === "/" 
-        ? cmd.routePath.startsWith("/") && cmd.routePath !== "/" && cmd.routePath !== splat.routePath
-        : cmd.routePath.startsWith(parentPath + "/") && cmd.routePath !== splat.routePath;
-      
+      const isChild =
+        parentPath === "/"
+          ? cmd.routePath.startsWith("/") &&
+            cmd.routePath !== "/" &&
+            cmd.routePath !== splat.routePath
+          : cmd.routePath.startsWith(`${parentPath}/`) && cmd.routePath !== splat.routePath;
+
       // But we need to check if it's a SIBLING (same parent) vs a child of the splat
       // Siblings are OK, children of the splat directory are not
       if (isChild) {
         const cmdParent = path.dirname(cmd.filePath);
         const splatDir = path.dirname(splat.filePath);
-        
+
         // If the command's file is inside the splat's directory or a subdirectory, it's an error
         // e.g., splat: add/$.ts, child: add/$/foo.ts or add/$/bar/baz.ts
-        if (cmdParent.startsWith(splatDir + "/") || cmdParent === splatDir + "/$") {
+        if (cmdParent.startsWith(`${splatDir}/`) || cmdParent === `${splatDir}/$`) {
           throw new Error(
             `Splat route '${splat.filePath}' cannot have child routes. ` +
-            `Found: '${cmd.filePath}'. Splat routes capture all remaining arguments, ` +
-            `so child routes would never be matched.`
+              `Found: '${cmd.filePath}'. Splat routes capture all remaining arguments, ` +
+              `so child routes would never be matched.`,
           );
         }
       }
@@ -145,10 +148,10 @@ function parseFilePath(filePath: string): ScannedCommand | null {
   }
 
   // For splat routes, keep the $ in segments but handle specially
-  // Route path becomes /parent/$ 
+  // Route path becomes /parent/$
 
   // Build route path
-  let routePath = "/" + segments.join("/");
+  let routePath = `/${segments.join("/")}`;
 
   // Handle root index
   if (segments.length === 0) {
@@ -166,7 +169,7 @@ function parseFilePath(filePath: string): ScannedCommand | null {
   // For regular params ($name), the param name is "name"
   const paramNames = segments
     .filter((s) => s.startsWith("$"))
-    .map((s) => s === "$" ? "_splat" : s.slice(1));
+    .map((s) => (s === "$" ? "_splat" : s.slice(1)));
 
   const hasParams = paramNames.length > 0;
 

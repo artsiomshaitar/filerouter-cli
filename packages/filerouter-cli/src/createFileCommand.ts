@@ -1,18 +1,23 @@
 import type { z } from "zod";
-import type { CommandConfig, FileCommand, FileCommandsByPath, ExtractParams, AnyCommand } from "./types";
+import type {
+  AnyCommand,
+  CommandConfig,
+  ExtractParams,
+  FileCommand,
+  FileCommandsByPath,
+} from "./types";
 
 /**
  * Infer context from parent command in FileCommandsByPath
  * Falls back to object if path not found (before generator runs)
  */
-type InferContextFromPath<TPath extends string> = 
-  TPath extends keyof FileCommandsByPath
-    ? FileCommandsByPath[TPath] extends { parentCommand: infer P }
-      ? P extends { __context?: infer C }
-        ? C
-        : object
+type InferContextFromPath<TPath extends string> = TPath extends keyof FileCommandsByPath
+  ? FileCommandsByPath[TPath] extends { parentCommand: infer P }
+    ? P extends { __context?: infer C }
+      ? C
       : object
-    : object;
+    : object
+  : object;
 
 /**
  * Creates a file-based command definition.
@@ -58,21 +63,27 @@ type InferContextFromPath<TPath extends string> =
  * });
  * ```
  */
-export function createFileCommand<TPath extends keyof FileCommandsByPath | (string & {})>(path: TPath) {
+export function createFileCommand<TPath extends keyof FileCommandsByPath | (string & {})>(
+  path: TPath,
+) {
   type TContext = InferContextFromPath<TPath extends string ? TPath : never>;
-  
+
   return <
     TArgs extends z.ZodTypeAny = z.ZodObject<Record<string, never>>,
     TParams extends z.ZodTypeAny = z.ZodType<ExtractParams<TPath extends string ? TPath : string>>,
   >(
-    config: CommandConfig<TPath extends string ? TPath : string, TArgs, TParams, TContext>
+    config: CommandConfig<TPath extends string ? TPath : string, TArgs, TParams, TContext>,
   ): FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> => {
     const command: FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> = {
       __path: path as TPath extends string ? TPath : string,
       config,
       __context: undefined as unknown as TContext,
       __getParentCommand: undefined,
-      update<TParentCommand extends AnyCommand>(opts: { id?: string; path?: string; getParentCommand?: () => TParentCommand }) {
+      update<TParentCommand extends AnyCommand>(opts: {
+        id?: string;
+        path?: string;
+        getParentCommand?: () => TParentCommand;
+      }) {
         return {
           ...this,
           __getParentCommand: opts.getParentCommand,
@@ -82,7 +93,9 @@ export function createFileCommand<TPath extends keyof FileCommandsByPath | (stri
         return {
           ...this,
           children,
-        } as FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> & { children: TChildren };
+        } as FileCommand<TPath extends string ? TPath : string, TArgs, TParams, TContext> & {
+          children: TChildren;
+        };
       },
     };
     return command;

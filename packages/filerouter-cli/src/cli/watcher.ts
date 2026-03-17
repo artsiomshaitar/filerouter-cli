@@ -1,10 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
-import {
-  scanCommands,
-  generateCommandsTree,
-  scaffoldIfEmpty,
-} from "../generator";
+import { toError } from "../errors";
+import { generateCommandsTree, scaffoldIfEmpty, scanCommands } from "../generator";
 
 export interface WatcherOptions {
   commandsDirectory: string;
@@ -19,13 +16,7 @@ export interface WatcherOptions {
  * Returns a cleanup function to stop watching
  */
 export function startWatcher(options: WatcherOptions): () => void {
-  const {
-    commandsDirectory,
-    generatedFile,
-    onCommandsChanged,
-    onWatchEvent,
-    onError,
-  } = options;
+  const { commandsDirectory, generatedFile, onCommandsChanged, onWatchEvent, onError } = options;
 
   const cwd = process.cwd();
   const commandsDir = path.resolve(cwd, commandsDirectory);
@@ -39,47 +30,43 @@ export function startWatcher(options: WatcherOptions): () => void {
   regenerate();
 
   // Watch directory recursively
-  const watcher = fs.watch(
-    commandsDir,
-    { recursive: true },
-    async (eventType, filename) => {
-      if (!filename) return;
+  const watcher = fs.watch(commandsDir, { recursive: true }, async (eventType, filename) => {
+    if (!filename) return;
 
-      const filePath = path.join(commandsDir, filename);
+    const filePath = path.join(commandsDir, filename);
 
-      // Only handle relevant file types
-      if (!/\.(ts|tsx|js|jsx)$/.test(filename)) return;
+    // Only handle relevant file types
+    if (!/\.(ts|tsx|js|jsx)$/.test(filename)) return;
 
-      // Ignore the generated file itself
-      if (filePath === outputFile) return;
+    // Ignore the generated file itself
+    if (filePath === outputFile) return;
 
-      // Debounce rapid changes
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
-
-      debounceTimer = setTimeout(async () => {
-        try {
-          // Check if file exists (might be a delete event)
-          const exists = fs.existsSync(filePath);
-
-          if (exists && eventType === "rename") {
-            // New file created - try to scaffold
-            const wasScaffolded = await scaffoldIfEmpty(filePath, commandsDir);
-            if (wasScaffolded) {
-              onWatchEvent(`scaffolded ${filename}`);
-            }
-          }
-
-          // Regenerate
-          await regenerate();
-          onWatchEvent(`regenerated (${eventType}: ${filename})`);
-        } catch (error) {
-          onError(error as Error);
-        }
-      }, DEBOUNCE_MS);
+    // Debounce rapid changes
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
     }
-  );
+
+    debounceTimer = setTimeout(async () => {
+      try {
+        // Check if file exists (might be a delete event)
+        const exists = fs.existsSync(filePath);
+
+        if (exists && eventType === "rename") {
+          // New file created - try to scaffold
+          const wasScaffolded = await scaffoldIfEmpty(filePath, commandsDir);
+          if (wasScaffolded) {
+            onWatchEvent(`scaffolded ${filename}`);
+          }
+        }
+
+        // Regenerate
+        await regenerate();
+        onWatchEvent(`regenerated (${eventType}: ${filename})`);
+      } catch (error) {
+        onError(toError(error));
+      }
+    }, DEBOUNCE_MS);
+  });
 
   async function regenerate() {
     try {
@@ -97,9 +84,7 @@ export function startWatcher(options: WatcherOptions): () => void {
       }
 
       // Only write if changed
-      const existing = fs.existsSync(outputFile)
-        ? fs.readFileSync(outputFile, "utf-8")
-        : "";
+      const existing = fs.existsSync(outputFile) ? fs.readFileSync(outputFile, "utf-8") : "";
 
       const normalize = (s: string) => s.replace(/^\/\/ Generated at:.*$/m, "");
 
@@ -109,7 +94,7 @@ export function startWatcher(options: WatcherOptions): () => void {
 
       onCommandsChanged(result.commands.length);
     } catch (error) {
-      onError(error as Error);
+      onError(toError(error));
     }
   }
 
@@ -125,9 +110,7 @@ export function startWatcher(options: WatcherOptions): () => void {
 /**
  * Get initial command count
  */
-export async function getInitialCommandCount(
-  commandsDirectory: string
-): Promise<number> {
+export async function getInitialCommandCount(commandsDirectory: string): Promise<number> {
   const cwd = process.cwd();
   const commandsDir = path.resolve(cwd, commandsDirectory);
 

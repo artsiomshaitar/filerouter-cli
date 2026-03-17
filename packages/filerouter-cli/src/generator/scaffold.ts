@@ -22,10 +22,7 @@ export async function isFileEmpty(filePath: string): Promise<boolean> {
 /**
  * Detect the command type from the file path
  */
-export function detectCommandType(
-  filePath: string,
-  commandsDirectory: string
-): CommandType {
+export function detectCommandType(filePath: string, commandsDirectory: string): CommandType {
   const relativePath = path.relative(commandsDirectory, filePath);
   const parsed = path.parse(relativePath);
   const fileName = parsed.name;
@@ -68,23 +65,20 @@ export function detectCommandType(
 
 /**
  * Extract parameter names from a file path
- * 
+ *
  * Examples:
  * - "$projectId.ts" -> ["projectId"]
  * - "users/$userId.ts" -> ["userId"]
  * - "$org/$repo.ts" -> ["org", "repo"]
  * - "add/$.ts" -> ["_splat"]
  */
-export function extractParamNames(
-  filePath: string,
-  commandsDirectory: string
-): string[] {
+export function extractParamNames(filePath: string, commandsDirectory: string): string[] {
   const relativePath = path.relative(commandsDirectory, filePath);
   const withoutExt = relativePath.replace(/\.(ts|tsx|js|jsx)$/, "");
   const segments = withoutExt.split(path.sep);
-  
+
   const params: string[] = [];
-  
+
   for (const segment of segments) {
     if (segment === "$") {
       // Splat parameter
@@ -93,13 +87,13 @@ export function extractParamNames(
       params.push(segment.slice(1));
     }
   }
-  
+
   return params;
 }
 
 /**
  * Calculate the route path from a file path
- * 
+ *
  * Examples:
  * - "deploy.ts" -> "/deploy"
  * - "list/index.ts" -> "/list"
@@ -107,10 +101,7 @@ export function extractParamNames(
  * - "_auth/route.ts" -> "/_auth"
  * - "_auth/protected.ts" -> "/_auth/protected"
  */
-export function filePathToRoutePath(
-  filePath: string,
-  commandsDirectory: string
-): string {
+export function filePathToRoutePath(filePath: string, commandsDirectory: string): string {
   const relativePath = path.relative(commandsDirectory, filePath);
   const withoutExt = relativePath.replace(/\.(ts|tsx|js|jsx)$/, "");
   const segments = withoutExt.split(path.sep).filter(Boolean);
@@ -126,7 +117,7 @@ export function filePathToRoutePath(
     return "/";
   }
 
-  return "/" + segments.join("/");
+  return `/${segments.join("/")}`;
 }
 
 /**
@@ -135,18 +126,18 @@ export function filePathToRoutePath(
 export function generateBoilerplate(
   routePath: string,
   type: CommandType,
-  paramNames: string[]
+  paramNames: string[],
 ): string {
   const lines: string[] = [];
 
   // Imports
   lines.push('import { createFileCommand } from "filerouter-cli";');
-  
+
   // Only need zod import for params type (not splat - uses paramsDescription)
   if (type === "params" && paramNames.length > 0) {
     lines.push('import { z } from "zod";');
   }
-  
+
   lines.push("");
 
   // Command export
@@ -177,12 +168,14 @@ export function generateBoilerplate(
     lines.push("  },");
   } else if (type === "splat") {
     // Splat handler - access params._splat as string[]
-    const commandName = routePath.replace(/\/\$$/, "").split("/").filter(Boolean).pop() || "command";
+    const commandName =
+      routePath.replace(/\/\$$/, "").split("/").filter(Boolean).pop() || "command";
     lines.push("  handler: async ({ params }) => {");
     lines.push("    const items = params._splat;");
     lines.push("    if (items.length === 0) {");
     lines.push(`      return "Usage: ${commandName} <items...>";`);
     lines.push("    }");
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: generating template literal source code
     lines.push('    return `Processing: ${items.join(", ")}`;');
     lines.push("  },");
   } else if (type === "params" && paramNames.length > 0) {
@@ -192,9 +185,8 @@ export function generateBoilerplate(
     lines.push("  },");
   } else {
     // Extract command name from route path for basic/index
-    const commandName = routePath === "/" 
-      ? "root" 
-      : routePath.split("/").filter(Boolean).pop() || "command";
+    const commandName =
+      routePath === "/" ? "root" : routePath.split("/").filter(Boolean).pop() || "command";
     lines.push("  handler: async () => {");
     lines.push(`    return "${commandName} command";`);
     lines.push("  },");
@@ -209,10 +201,7 @@ export function generateBoilerplate(
 /**
  * Generate boilerplate for a file based on its path
  */
-export function generateBoilerplateForFile(
-  filePath: string,
-  commandsDirectory: string
-): string {
+export function generateBoilerplateForFile(filePath: string, commandsDirectory: string): string {
   const type = detectCommandType(filePath, commandsDirectory);
   const routePath = filePathToRoutePath(filePath, commandsDirectory);
   const paramNames = extractParamNames(filePath, commandsDirectory);
@@ -226,16 +215,16 @@ export function generateBoilerplateForFile(
  */
 export async function scaffoldIfEmpty(
   filePath: string,
-  commandsDirectory: string
+  commandsDirectory: string,
 ): Promise<boolean> {
   const isEmpty = await isFileEmpty(filePath);
-  
+
   if (!isEmpty) {
     return false;
   }
 
   const boilerplate = generateBoilerplateForFile(filePath, commandsDirectory);
   await fs.promises.writeFile(filePath, boilerplate, "utf-8");
-  
+
   return true;
 }

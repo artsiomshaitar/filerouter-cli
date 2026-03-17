@@ -11,7 +11,7 @@ const MIN_SIMILARITY = 0.4;
 /**
  * Calculate Damerau-Levenshtein distance between two strings.
  * Handles insertions, deletions, substitutions, and transpositions.
- * 
+ *
  * Based on Commander.js implementation.
  */
 function editDistance(a: string, b: string): number {
@@ -39,9 +39,9 @@ function editDistance(a: string, b: string): number {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 
       d[i][j] = Math.min(
-        d[i - 1][j] + 1,      // deletion
-        d[i][j - 1] + 1,      // insertion
-        d[i - 1][j - 1] + cost // substitution
+        d[i - 1][j] + 1, // deletion
+        d[i][j - 1] + 1, // insertion
+        d[i - 1][j - 1] + cost, // substitution
       );
 
       // Transposition
@@ -71,7 +71,7 @@ export interface FlagInfo {
  */
 export function extractValidFlags(
   schema: z.ZodTypeAny | undefined,
-  aliases?: Record<string, string[]>
+  aliases?: Record<string, string[]>,
 ): Map<string, FlagInfo> {
   const flagMap = new Map<string, FlagInfo>();
 
@@ -105,38 +105,34 @@ export function extractValidFlags(
  * Format a flag with its aliases for display
  */
 function formatFlagWithAliases(info: FlagInfo): string {
-  const canonical = info.canonical.length === 1 
-    ? `-${info.canonical}` 
-    : `--${info.canonical}`;
-  
+  const canonical = info.canonical.length === 1 ? `-${info.canonical}` : `--${info.canonical}`;
+
   if (info.aliases.length === 0) {
     return canonical;
   }
 
-  const aliasStr = info.aliases
-    .map(a => a.length === 1 ? `-${a}` : `--${a}`)
-    .join(", ");
-  
+  const aliasStr = info.aliases.map((a) => (a.length === 1 ? `-${a}` : `--${a}`)).join(", ");
+
   return `${canonical} (alias: ${aliasStr})`;
 }
 
 /**
  * Find similar flags for an unknown flag using prefix matching and edit distance.
- * 
+ *
  * Priority:
  * 1. Prefix matches (unknown is a prefix of a valid flag)
  * 2. Edit distance matches (typos)
  */
 export function suggestSimilarFlags(
   unknownFlag: string,
-  validFlags: Map<string, FlagInfo>
+  validFlags: Map<string, FlagInfo>,
 ): { suggestions: FlagInfo[]; allFlags: FlagInfo[] } {
   // Get unique canonical flags (avoid duplicates from aliases)
   const uniqueFlags = new Map<string, FlagInfo>();
   for (const info of validFlags.values()) {
     uniqueFlags.set(info.canonical, info);
   }
-  
+
   const allFlags = Array.from(uniqueFlags.values());
   const suggestions: FlagInfo[] = [];
   const seen = new Set<string>();
@@ -147,7 +143,7 @@ export function suggestSimilarFlags(
   // 1. Check prefix matches first
   for (const info of allFlags) {
     const canonical = info.canonical;
-    
+
     // Check if unknown is a prefix of canonical
     if (canonical.startsWith(normalizedUnknown) && canonical !== normalizedUnknown) {
       if (!seen.has(canonical)) {
@@ -155,7 +151,7 @@ export function suggestSimilarFlags(
         seen.add(canonical);
       }
     }
-    
+
     // Also check if unknown is a prefix of any alias
     for (const alias of info.aliases) {
       if (alias.startsWith(normalizedUnknown) && alias !== normalizedUnknown) {
@@ -208,7 +204,7 @@ export function suggestSimilarFlags(
  */
 export function formatUnknownFlagsError(
   unknownFlags: string[],
-  validFlags: Map<string, FlagInfo>
+  validFlags: Map<string, FlagInfo>,
 ): { message: string; help: string } {
   const lines: string[] = [];
   const allSuggestions: FlagInfo[] = [];
@@ -216,11 +212,11 @@ export function formatUnknownFlagsError(
   for (const flag of unknownFlags) {
     const displayFlag = flag.startsWith("-") ? flag : `--${flag}`;
     const { suggestions } = suggestSimilarFlags(flag, validFlags);
-    
+
     if (suggestions.length > 0) {
       allSuggestions.push(...suggestions);
     }
-    
+
     lines.push(displayFlag);
   }
 
@@ -228,10 +224,10 @@ export function formatUnknownFlagsError(
   const message = `Unknown ${flagWord}: ${lines.join(", ")}`;
 
   let help: string;
-  
+
   // Deduplicate suggestions
   const uniqueSuggestions = Array.from(
-    new Map(allSuggestions.map(s => [s.canonical, s])).values()
+    new Map(allSuggestions.map((s) => [s.canonical, s])).values(),
   );
 
   if (uniqueSuggestions.length > 0) {
@@ -251,8 +247,8 @@ export function formatUnknownFlagsError(
       .sort((a, b) => a.canonical.localeCompare(b.canonical))
       .map(formatFlagWithAliases)
       .join(", ");
-    
-    help = allFlagsList 
+
+    help = allFlagsList
       ? `Available flags: ${allFlagsList}`
       : "No flags available for this command.";
   }
@@ -282,16 +278,16 @@ export interface ParseOptions {
 
 /**
  * Extract boolean flag names from a Zod schema
- * 
+ *
  * This inspects the schema to find all fields that are z.boolean()
  * (including wrapped in .optional(), .default(), etc.)
  */
 export function extractBooleanFlags(
   schema: z.ZodTypeAny | undefined,
-  aliases?: Record<string, string[]>
+  aliases?: Record<string, string[]>,
 ): Set<string> {
   const booleanFlags = new Set<string>();
-  
+
   if (!schema || !("shape" in schema)) {
     return booleanFlags;
   }
@@ -302,7 +298,7 @@ export function extractBooleanFlags(
   for (const [name, fieldSchema] of Object.entries(shape)) {
     if (isBooleanSchema(fieldSchema)) {
       booleanFlags.add(name);
-      
+
       // Also add aliases for this flag
       if (aliases?.[name]) {
         for (const alias of aliases[name]) {
@@ -330,10 +326,11 @@ function isBooleanSchema(schema: z.ZodTypeAny): boolean {
       return true;
     case "ZodDefault":
     case "ZodOptional":
-    case "ZodNullable":
+    case "ZodNullable": {
       // Unwrap and check inner type
       const innerType = def.innerType as z.ZodTypeAny | undefined;
       return innerType ? isBooleanSchema(innerType) : false;
+    }
     default:
       return false;
   }
@@ -344,7 +341,7 @@ function isBooleanSchema(schema: z.ZodTypeAny): boolean {
  */
 export function expandAliases(
   flags: Record<string, unknown>,
-  aliases: Record<string, string[]>
+  aliases: Record<string, string[]>,
 ): Record<string, unknown> {
   const expanded: Record<string, unknown> = { ...flags };
 
@@ -379,7 +376,7 @@ export function expandAliases(
  * - --boolean (sets to true)
  * - --no-boolean (sets to false)
  * - Positional arguments (everything that doesn't start with -)
- * 
+ *
  * When booleanFlags is provided, those flags will never consume the next argument.
  * This allows patterns like: `cli add -D package` where -D is boolean.
  */
@@ -411,31 +408,31 @@ export function parseRawArgs(argv: string[], options: ParseOptions = {}): Parsed
       if (equalIndex !== -1) {
         // --flag=value (explicit value syntax always takes value)
         const flagName = arg.slice(2, equalIndex);
-        
+
         // Double dash requires 2+ character flag name
         if (flagName.length === 1) {
           throw new ParseError(
             `Invalid flag format: ${arg}`,
             `Use single dash for single-character flags: -${flagName}`,
-            "INVALID_ARG"
+            "INVALID_ARG",
           );
         }
-        
+
         const value = arg.slice(equalIndex + 1);
         flags[flagName] = parseValue(value);
       } else {
         // --flag or --flag value
         const flagName = arg.slice(2);
-        
+
         // Double dash requires 2+ character flag name
         if (flagName.length === 1) {
           throw new ParseError(
             `Invalid flag format: --${flagName}`,
             `Use single dash for single-character flags: -${flagName}`,
-            "INVALID_ARG"
+            "INVALID_ARG",
           );
         }
-        
+
         const nextArg = argv[i + 1];
 
         // Check if this flag is known to be boolean
@@ -523,7 +520,7 @@ export function validateArgs<T extends z.ZodTypeAny>(
   flags: Record<string, unknown>,
   schema: T,
   aliases?: Record<string, string[]>,
-  options?: ValidateArgsOptions
+  options?: ValidateArgsOptions,
 ): z.infer<T> {
   const { strictFlags = true } = options ?? {};
 
@@ -557,7 +554,7 @@ export function validateArgs<T extends z.ZodTypeAny>(
     throw new ParseError(
       `Invalid arguments:\n${errors}`,
       "Check the argument types and try again.",
-      "VALIDATION_ERROR"
+      "VALIDATION_ERROR",
     );
   }
 
@@ -569,19 +566,17 @@ export function validateArgs<T extends z.ZodTypeAny>(
  */
 export function validateParams<T extends z.ZodTypeAny>(
   params: Record<string, string | string[]>,
-  schema: T
+  schema: T,
 ): z.infer<T> {
   const result = schema.safeParse(params);
 
   if (!result.success) {
-    const errors = result.error.errors
-      .map((e) => `  ${e.path.join(".")}: ${e.message}`)
-      .join("\n");
+    const errors = result.error.errors.map((e) => `  ${e.path.join(".")}: ${e.message}`).join("\n");
 
     throw new ParseError(
       `Invalid parameters:\n${errors}`,
       "Check the parameter values and try again.",
-      "VALIDATION_ERROR"
+      "VALIDATION_ERROR",
     );
   }
 

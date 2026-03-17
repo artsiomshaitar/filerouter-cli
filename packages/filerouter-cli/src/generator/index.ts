@@ -1,24 +1,17 @@
-// Scanner
-export { scanCommands, routePathToVarName, routePathToCliCommand } from "./scanner";
-
-// Code generation
 export { generateCommandsTree } from "./codegen";
-
-// Scaffolding
 export {
-  isFileEmpty,
+  type CommandType,
   detectCommandType,
   extractParamNames,
   filePathToRoutePath,
   generateBoilerplate,
   generateBoilerplateForFile,
+  isFileEmpty,
   scaffoldIfEmpty,
-  type CommandType,
 } from "./scaffold";
-
-// Types
+export { routePathToCliCommand, routePathToVarName, scanCommands } from "./scanner";
 export type {
-  ScannedCommand,
   GeneratorConfig,
+  ScannedCommand,
   ScanResult,
 } from "./types";

@@ -3,11 +3,11 @@ import type { RootCommand } from "./createRootCommand";
 
 /**
  * File commands by path - extended by generated code for type-safe context inference
- * 
+ *
  * This interface is populated by the generated `commandsTree.gen.ts` file via
  * declaration merging. It maps each command path to its metadata including
  * the parent command type, which enables automatic context type inference.
- * 
+ *
  * @example
  * ```ts
  * // Generated in commandsTree.gen.ts:
@@ -40,22 +40,23 @@ export type AnyCommand = RootCommand<any> | FileCommand<any, any, any, any>;
 
 /**
  * Extract param names from a route path string
- * 
+ *
  * Examples:
  * - "/list/$projectId" -> "projectId"
  * - "/users/$userId/posts/$postId" -> "userId" | "postId"
  * - "/add/$" -> "_splat"
  */
-type ExtractParamNames<T extends string> = 
-  T extends `${string}/$${infer Param}/${infer Rest}`
-    ? (Param extends "" ? "_splat" : Param) | ExtractParamNames<`/${Rest}`>
-    : T extends `${string}/$${infer Param}`
-      ? Param extends "" ? "_splat" : Param
-      : never;
+type ExtractParamNames<T extends string> = T extends `${string}/$${infer Param}/${infer Rest}`
+  ? (Param extends "" ? "_splat" : Param) | ExtractParamNames<`/${Rest}`>
+  : T extends `${string}/$${infer Param}`
+    ? Param extends ""
+      ? "_splat"
+      : Param
+    : never;
 
 /**
  * Build params object type from route path
- * 
+ *
  * Examples:
  * - ExtractParams<"/list/$projectId"> = { projectId: string }
  * - ExtractParams<"/add/$"> = { _splat: string[] }
@@ -78,7 +79,7 @@ export type ShellFn = typeof Bun.$;
  */
 export type Middleware<TContext = object> = (
   context: TContext,
-  next: () => Promise<void>
+  next: () => Promise<void>,
 ) => Promise<void>;
 
 /**
@@ -127,7 +128,7 @@ export interface CommandConfig<
   validateArgs?: TArgs;
   /** Zod schema for validating path parameters ($projectId) */
   validateParams?: TParams;
-  /** 
+  /**
    * Simple descriptions for path parameters (type-inferred from route path)
    * Use this for simple cases; use validateParams with .describe() for advanced validation
    */
@@ -176,14 +177,14 @@ export interface FileCommand<
    * @internal Used by generated code to wire up parent relationships
    */
   update: <TParentCommand extends AnyCommand>(
-    opts: FileCommandUpdateOptions<TParentCommand>
+    opts: FileCommandUpdateOptions<TParentCommand>,
   ) => FileCommand<TPath, TArgs, TParams, TContext>;
   /**
    * Add file-based children to this command
    * @internal Used by generated code for nested commands
    */
   _addFileChildren: <TChildren>(
-    children: TChildren
+    children: TChildren,
   ) => FileCommand<TPath, TArgs, TParams, TContext> & { children: TChildren };
 }
 
@@ -199,7 +200,7 @@ export interface RouterConfig<TContext = object> {
   context?: TContext;
   /** Global error handler */
   defaultOnError?: (error: Error) => void;
-  /** 
+  /**
    * CLI name for help output.
    * If not provided, automatically reads from package.json "name" field.
    * Falls back to "cli" if package.json cannot be found.
@@ -273,9 +274,9 @@ export interface CommandInfo {
  * Router instance type
  */
 export interface Router<TContext = object> {
-  /** Run a command from argv (prints output, handles errors, exits on error) */
+  /** Run a command from argv. Prints output to stdout/stderr, re-throws errors. */
   run: (argv: string[]) => Promise<void>;
-  /** Invoke a command programmatically (returns result, doesn't print) */
+  /** Invoke a command programmatically. Returns the handler result without printing. */
   invoke: (route: ParsedRoute) => Promise<string | number | void>;
   /** @internal Type-only property for context inference */
   readonly __context?: TContext;

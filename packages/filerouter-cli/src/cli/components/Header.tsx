@@ -1,4 +1,3 @@
-import React from "react";
 import { Box, Text } from "ink";
 
 export interface HeaderProps {
@@ -22,9 +21,7 @@ export function Header({ version, commandsDirectory, commandCount }: HeaderProps
         </Text>
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>
-          Press Ctrl+C to exit
-        </Text>
+        <Text dimColor>Press Ctrl+C to exit</Text>
       </Box>
     </Box>
   );

@@ -1,4 +1,3 @@
-import React from "react";
 import { Box, Text } from "ink";
 
 export type OutputEntryType = "command" | "result" | "error" | "info" | "watch";
@@ -43,6 +42,7 @@ function OutputLine({ entry }: { entry: OutputEntry }) {
       return (
         <Box flexDirection="column">
           {entry.content.split("\n").map((line, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static content, order never changes
             <Text key={`${entry.id}-result-${i}`}>{line}</Text>
           ))}
         </Box>
@@ -52,6 +52,7 @@ function OutputLine({ entry }: { entry: OutputEntry }) {
       return (
         <Box flexDirection="column">
           {entry.content.split("\n").map((line, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: static content, order never changes
             <Text key={`${entry.id}-error-${i}`} color="red">
               {line}
             </Text>

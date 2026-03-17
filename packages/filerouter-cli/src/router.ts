@@ -1,9 +1,9 @@
-import type { FileCommand, ParsedRoute, Router, RouterConfig } from "./types";
-import { CommandNotFoundError, ParseError, RunCommandError } from "./errors";
-import { executeCommand, executeWithLayouts, findLayoutChain } from "./context";
-import { generateCommandHelp, generateGlobalHelp, hasHelpFlag } from "./help";
 import { setCliName } from "./commandInfo";
+import { executeWithLayouts, findLayoutChain } from "./context";
+import { CommandNotFoundError, ParseError, RunCommandError, toError } from "./errors";
+import { generateCommandHelp, generateGlobalHelp, hasHelpFlag } from "./help";
 import { getProjectName } from "./packageJson";
+import type { FileCommand, ParsedRoute, Router, RouterConfig } from "./types";
 
 /**
  * Create a commands router
@@ -18,11 +18,11 @@ import { getProjectName } from "./packageJson";
  *   parseRoute,
  * });
  *
- * await router.run(process.argv);
+ * await router.run(process.argv).catch(() => process.exit(1));
  * ```
  */
 export function createCommandsRouter<TContext extends object = object>(
-  config: RouterConfig<TContext>
+  config: RouterConfig<TContext>,
 ): Router<TContext> {
   const {
     commandsTree,
@@ -33,15 +33,9 @@ export function createCommandsRouter<TContext extends object = object>(
     strictFlags = true,
   } = config;
 
-  // Resolve CLI name: explicit > package.json > fallback
   const cliName = explicitCliName ?? getProjectName();
-  
-  // Sync with commandInfo() so it uses the same CLI name
   setCliName(cliName);
 
-  /**
-   * Get available command paths for error messages
-   */
   function getAvailableCommands(): string[] {
     return Object.keys(commandsTree).filter((path) => {
       // Filter out layout-only commands (paths ending with / but not root)
@@ -52,21 +46,24 @@ export function createCommandsRouter<TContext extends object = object>(
     });
   }
 
-  /**
-   * Find a command by path
-   */
   function findCommand(path: string): FileCommand<any, any, any, any> | undefined {
     return commandsTree[path];
   }
 
+  const MAX_REDIRECT_DEPTH = 10;
+
   /**
-   * Execute a command and handle its output
+   * Execute a command and handle its output.
+   *
+   * @param visitedPaths Tracks paths seen during runCommand redirects to detect cycles.
+   * @param depth Current redirect depth (0 = initial call).
    */
   async function handleRoute(
     route: ParsedRoute,
-    printOutput: boolean
+    printOutput: boolean,
+    visitedPaths: Set<string> = new Set(),
+    depth: number = 0,
   ): Promise<string | number | void> {
-    // Check for global help (--help with no command)
     if (route.path === "__help__" || (route.path === "/" && hasHelpFlag(route.args))) {
       const helpText = generateGlobalHelp(commandsTree, cliName);
       if (printOutput) console.log(helpText);
@@ -79,62 +76,60 @@ export function createCommandsRouter<TContext extends object = object>(
       throw new CommandNotFoundError(route.path, getAvailableCommands());
     }
 
-    // Check for command-specific help
     if (hasHelpFlag(route.args)) {
-      const helpText = generateCommandHelp(
-        command,
-        cliName,
-        route.path,
-        command.config.aliases
-      );
+      const helpText = generateCommandHelp(command, cliName, route.path, command.config.aliases);
       if (printOutput) console.log(helpText);
       return helpText;
     }
 
-    // Find layout chain
     const layouts = findLayoutChain(route.path, commandsTree);
 
     try {
-      // Execute with layouts
-      const result = await executeWithLayouts(
-        command,
-        layouts,
-        route,
-        context,
-        { strictFlags }
-      );
+      const result = await executeWithLayouts(command, layouts, route, context, { strictFlags });
 
-      // Handle output
-      if (printOutput) {
-        if (typeof result === "string") {
-          console.log(result);
-        } else if (typeof result === "number") {
-          process.exit(result);
-        }
+      if (printOutput && typeof result === "string") {
+        console.log(result);
       }
 
       return result;
     } catch (error) {
-      // Handle runCommand calls (command invoking another command)
       if (error instanceof RunCommandError) {
+        const targetPath = error.path;
+
+        if (visitedPaths.has(targetPath)) {
+          throw new Error(
+            `runCommand cycle detected: "${targetPath}" was already visited. ` +
+              `Chain: ${[...visitedPaths, targetPath].join(" -> ")}`,
+          );
+        }
+
+        if (depth >= MAX_REDIRECT_DEPTH) {
+          throw new Error(
+            `runCommand redirect depth exceeded (max ${MAX_REDIRECT_DEPTH}). ` +
+              `Chain: ${[...visitedPaths, targetPath].join(" -> ")}`,
+          );
+        }
+
+        const nextVisited = new Set(visitedPaths);
+        nextVisited.add(route.path);
+
         const newRoute: ParsedRoute = {
-          path: error.path,
+          path: targetPath,
           params: {},
           args: error.args ?? {},
           rawArgs: [],
         };
-        return handleRoute(newRoute, printOutput);
+        return handleRoute(newRoute, printOutput, nextVisited, depth + 1);
       }
 
-      // Try error handlers in order: layouts (outermost first) -> command -> global
-      // This allows layouts to handle errors from their children
+      // Error handlers: layouts (outermost first) -> command -> global
       const errorHandlers = [
         ...layouts.map((l) => l.config.onError),
         command.config.onError,
       ].filter(Boolean);
 
       for (const onError of errorHandlers) {
-        const handled = onError!(error as Error);
+        const handled = onError!(toError(error));
         if (handled !== undefined) {
           if (printOutput) {
             console.error(handled);
@@ -143,21 +138,16 @@ export function createCommandsRouter<TContext extends object = object>(
         }
       }
 
-      // Handle global error handler
       if (defaultOnError) {
-        defaultOnError(error as Error);
+        defaultOnError(toError(error));
         return;
       }
 
-      // Re-throw if no error handler
       throw error;
     }
   }
 
   return {
-    /**
-     * Run a command from argv (prints output, handles errors, exits on error)
-     */
     async run(argv: string[]): Promise<void> {
       try {
         const route = parseRoute(argv);
@@ -166,18 +156,13 @@ export function createCommandsRouter<TContext extends object = object>(
         if (error instanceof ParseError || error instanceof CommandNotFoundError) {
           console.error(`Error: ${error.message}`);
           console.log(`\n${error.help}`);
-          process.exit(1);
+        } else {
+          console.error("Unexpected error:", error);
         }
-
-        // Unknown error
-        console.error("Unexpected error:", error);
-        process.exit(1);
+        throw error;
       }
     },
 
-    /**
-     * Invoke a command programmatically (returns result without printing)
-     */
     async invoke(route: ParsedRoute): Promise<string | number | void> {
       return handleRoute(route, false);
     },

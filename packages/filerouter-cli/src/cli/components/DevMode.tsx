@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
 import { Box } from "ink";
-import { Header } from "./Header.js";
-import { Output, OutputEntry, OutputEntryType } from "./Output.js";
-import { Prompt } from "./Prompt.js";
-import { startWatcher, getInitialCommandCount } from "../watcher.js";
-import { getVersion } from "../version.js";
-import { getProjectName } from "../../packageJson.js";
 import * as path from "path";
+import React, { useCallback, useEffect, useState } from "react";
+import { toError } from "../../errors.js";
+import { getProjectName } from "../../packageJson.js";
+import { getVersion } from "../version.js";
+import { getInitialCommandCount, startWatcher } from "../watcher.js";
+import { Header } from "./Header.js";
+import { Output, type OutputEntry, type OutputEntryType } from "./Output.js";
+import { Prompt } from "./Prompt.js";
 
 const VERSION = getVersion();
 
@@ -31,10 +32,7 @@ export function DevMode({ commandsDirectory, generatedFile, entryPoint }: DevMod
   // Add an entry to the output
   const addEntry = useCallback((type: OutputEntryType, content: string) => {
     const id = entryIdRef.current++;
-    setEntries((prev) => [
-      ...prev,
-      { id, type, content, timestamp: new Date() },
-    ]);
+    setEntries((prev) => [...prev, { id, type, content, timestamp: new Date() }]);
   }, []);
 
   // Clear all entries (Ctrl+L)
@@ -80,12 +78,12 @@ export function DevMode({ commandsDirectory, generatedFile, entryPoint }: DevMod
           addEntry("error", stderr.trim());
         }
       } catch (error) {
-        addEntry("error", (error as Error).message);
+        addEntry("error", toError(error).message);
       } finally {
         setIsExecuting(false);
       }
     },
-    [addEntry, entryPoint, cliName]
+    [addEntry, entryPoint, cliName],
   );
 
   // Start file watcher for scaffolding and regeneration
@@ -122,11 +120,7 @@ export function DevMode({ commandsDirectory, generatedFile, entryPoint }: DevMod
 
   return (
     <Box flexDirection="column" height="100%">
-      <Header
-        version={VERSION}
-        commandsDirectory={commandsDirectory}
-        commandCount={commandCount}
-      />
+      <Header version={VERSION} commandsDirectory={commandsDirectory} commandCount={commandCount} />
       <Box flexDirection="column" flexGrow={1}>
         <Output entries={entries} />
       </Box>

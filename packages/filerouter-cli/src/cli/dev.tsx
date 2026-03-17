@@ -1,4 +1,3 @@
-import React from "react";
 import { render } from "ink";
 import { DevMode } from "./components/DevMode.js";
 
@@ -30,7 +29,7 @@ Solutions:
       commandsDirectory={options.commandsDirectory}
       generatedFile={options.generatedFile}
       entryPoint={options.entryPoint}
-    />
+    />,
   );
 
   await waitUntilExit();

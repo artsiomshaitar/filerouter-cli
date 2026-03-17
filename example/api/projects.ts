@@ -20,9 +20,7 @@ export async function getProjects(filter?: string) {
   }
 
   const lowerFilter = filter.toLowerCase();
-  return PROJECTS.filter((p) =>
-    p.name.toLowerCase().includes(lowerFilter)
-  );
+  return PROJECTS.filter((p) => p.name.toLowerCase().includes(lowerFilter));
 }
 
 /**

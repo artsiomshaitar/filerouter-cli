@@ -1,12 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile, readFile } from "fs/promises";
-import { join } from "path";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
-import {
-  detectCommandType,
-  generateBoilerplate,
-  scaffoldIfEmpty,
-} from "../../generator/scaffold";
+import { join } from "path";
+import { detectCommandType, generateBoilerplate, scaffoldIfEmpty } from "../../generator/scaffold";
 
 describe("detectCommandType", () => {
   describe("basic type", () => {
@@ -119,7 +115,10 @@ describe("generateBoilerplate", () => {
     });
 
     it("generates params command with multiple params", () => {
-      const code = generateBoilerplate("/users/$userId/posts/$postId", "params", ["userId", "postId"]);
+      const code = generateBoilerplate("/users/$userId/posts/$postId", "params", [
+        "userId",
+        "postId",
+      ]);
 
       expect(code).toContain("userId");
       expect(code).toContain("postId");

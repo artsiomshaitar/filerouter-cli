@@ -1,89 +1,38 @@
-// Core exports
+// Core factories
+
+export { commandInfo, registerCommands } from "./commandInfo";
 export { createFileCommand } from "./createFileCommand";
 export { createRootCommand, type RootCommand, type RootCommandConfig } from "./createRootCommand";
+// Generator (used by CLI tooling and dev mode)
+export {
+  type CommandType,
+  type GeneratorConfig,
+  generateCommandsTree,
+  type ScannedCommand,
+  type ScanResult,
+  scaffoldIfEmpty,
+  scanCommands,
+} from "./generator";
+export { createGuard } from "./middleware";
+// Used by generated commandsTree.gen.ts
+export { createParseRoute, extractRouteParams, type RouteTable } from "./parseRoute";
 export { createCommandsRouter } from "./router";
-
-// Run command (type-safe command invocation)
-export { runCommand, isRunCommand, type Register, type RegisteredContext, type EmptyParams } from "./runCommand";
-
-
-
-// Parser utilities
-export {
-  parseRawArgs,
-  validateArgs,
-  validateParams,
-  expandAliases,
-  extractBooleanFlags,
-  extractValidFlags,
-  suggestSimilarFlags,
-  formatUnknownFlagsError,
-  type ParsedArgs,
-  type ParseOptions,
-  type ValidateArgsOptions,
-  type FlagInfo,
-} from "./parser";
-
-// Middleware utilities
-export { executeMiddleware, createGuard } from "./middleware";
-
-// Shell helper
-export { getShell, $ } from "./shell";
-
-// Help utilities
-export {
-  generateCommandHelp,
-  generateGlobalHelp,
-  hasHelpFlag,
-  extractFieldsFromZodSchema,
-} from "./help";
-
-// Command info (type-safe command introspection)
-export { commandInfo, registerCommands } from "./commandInfo";
-
-// Route parsing (used by generated code)
-export { createParseRoute, type RouteTable } from "./parseRoute";
-
+// Runtime helpers
+export { type EmptyParams, type Register, type RegisteredContext, runCommand } from "./runCommand";
 // Types
 export type {
-  // Core types
+  AnyCommand,
+  CommandConfig,
+  CommandHandler,
+  CommandInfo,
+  FieldInfo,
   FileCommand,
   FileCommandsByPath,
   FileCommandUpdateOptions,
-  AnyCommand,
-  CommandConfig,
-  RouterConfig,
+  HandlerContext,
+  Middleware,
+  ParamInfo,
   ParsedRoute,
   Router,
-  CommandInfo,
-  FieldInfo,
-  ParamInfo,
-  // Handler types
-  HandlerContext,
-  CommandHandler,
-  Middleware,
-  ShellFn,
+  RouterConfig,
 } from "./types";
-
-// Generator exports
-export {
-  // Scanner
-  scanCommands,
-  routePathToVarName,
-  routePathToCliCommand,
-  // Code generation
-  generateCommandsTree,
-  // Scaffolding
-  isFileEmpty,
-  detectCommandType,
-  extractParamNames,
-  filePathToRoutePath,
-  generateBoilerplate,
-  generateBoilerplateForFile,
-  scaffoldIfEmpty,
-  type CommandType,
-  // Types
-  type ScannedCommand,
-  type GeneratorConfig,
-  type ScanResult,
-} from "./generator";

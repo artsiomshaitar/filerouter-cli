@@ -51,7 +51,7 @@ console.log("CLI bundle created");
 // Generate type declarations (only for the library, not CLI)
 console.log("Generating type declarations...");
 try {
-  await $`bunx tsc --emitDeclarationOnly --declaration --outDir dist --rootDir src src/index.ts src/types.ts src/errors.ts src/parser.ts src/middleware.ts src/router.ts src/context.ts src/shell.ts src/help.ts src/createFileCommand.ts src/utils/aliases.ts`.quiet();
+  await $`bunx tsc --emitDeclarationOnly --declaration --outDir dist --rootDir src src/index.ts src/types.ts src/errors.ts src/parser.ts src/middleware.ts src/router.ts src/context.ts src/shell.ts src/help.ts src/createFileCommand.ts src/createRootCommand.ts src/runCommand.ts src/commandInfo.ts src/parseRoute.ts src/packageJson.ts`.quiet();
 } catch {
   // TypeScript errors are non-fatal for development
   console.log("Note: Some type declarations may be incomplete");

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile, readFile } from "fs/promises";
-import { join } from "path";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
+import { join } from "path";
 import { generateCommandsTree } from "../../generator/codegen";
-import type { ScannedCommand, GeneratorConfig } from "../../generator/types";
+import type { GeneratorConfig, ScannedCommand } from "../../generator/types";
 
 // Helper to create __root.ts file in a commands directory (following TanStack Router's naming convention)
 async function createRootCommand(commandsDir: string): Promise<void> {
@@ -11,7 +11,7 @@ async function createRootCommand(commandsDir: string): Promise<void> {
   await writeFile(
     join(commandsDir, "__root.ts"),
     `import { createRootCommand } from "filerouter-cli";
-export const RootCommand = createRootCommand()({ description: "Test CLI" });`
+export const RootCommand = createRootCommand()({ description: "Test CLI" });`,
   );
 }
 
@@ -327,8 +327,8 @@ describe("generateCommandsTree", () => {
     it("calls registerCommands without cliName (cliName is determined at runtime)", () => {
       const code = generateCommandsTree([], defaultConfig);
 
-      expect(code).toContain('registerCommands(commandsTree)');
-      expect(code).not.toContain('registerCommands(commandsTree, ');
+      expect(code).toContain("registerCommands(commandsTree)");
+      expect(code).not.toContain("registerCommands(commandsTree, ");
     });
   });
 });
@@ -380,7 +380,7 @@ describe("generated code execution", () => {
           handler: async () => "auth output",
         },
       };
-    `
+    `,
     );
 
     // The code should be syntactically valid TypeScript

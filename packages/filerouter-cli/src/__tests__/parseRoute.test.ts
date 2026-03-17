@@ -1,10 +1,13 @@
-import { describe, it, expect } from "bun:test";
-import { createParseRoute, type RouteTable } from "../parseRoute";
+import { describe, expect, it } from "bun:test";
 import { ParseError } from "../errors";
+import { createParseRoute, type RouteTable } from "../parseRoute";
 import type { FileCommand } from "../types";
 
 // Helper to create a minimal mock command
-function mockCommand(path: string, options?: { validateArgs?: unknown; aliases?: Record<string, string[]> }): FileCommand<any, any, any, any> {
+function mockCommand(
+  path: string,
+  options?: { validateArgs?: unknown; aliases?: Record<string, string[]> },
+): FileCommand<any, any, any, any> {
   const cmd: FileCommand<any, any, any, any> = {
     __path: path,
     config: {
@@ -138,9 +141,7 @@ describe("createParseRoute", () => {
       const routeTable: RouteTable = {
         staticRoutes: {},
         dynamicRoutes: [],
-        splatRoutes: [
-          { parentSegments: ["add"], path: "/add/$" },
-        ],
+        splatRoutes: [{ parentSegments: ["add"], path: "/add/$" }],
         availableCommands: ["add <items...>"],
       };
 
@@ -158,9 +159,7 @@ describe("createParseRoute", () => {
       const routeTable: RouteTable = {
         staticRoutes: {},
         dynamicRoutes: [],
-        splatRoutes: [
-          { parentSegments: ["add"], path: "/add/$" },
-        ],
+        splatRoutes: [{ parentSegments: ["add"], path: "/add/$" }],
         availableCommands: ["add <items...>"],
       };
 
@@ -234,9 +233,7 @@ describe("createParseRoute", () => {
           add: "/add",
         },
         dynamicRoutes: [],
-        splatRoutes: [
-          { parentSegments: ["add"], path: "/add/$" },
-        ],
+        splatRoutes: [{ parentSegments: ["add"], path: "/add/$" }],
         availableCommands: ["add", "add <items...>"],
       };
 
@@ -245,7 +242,7 @@ describe("createParseRoute", () => {
       // With just "add", should match static route
       expect(parseRoute(["node", "cli", "add"]).path).toBe("/add");
 
-      // Greedy matching: "add package1" still matches "/add" because 
+      // Greedy matching: "add package1" still matches "/add" because
       // we try longest match first, then shorter prefixes.
       // The static "/add" route matches the "add" prefix.
       // "package1" is treated as an extra positional arg (not consumed by the route)
@@ -259,9 +256,7 @@ describe("createParseRoute", () => {
       const routeTable: RouteTable = {
         staticRoutes: {},
         dynamicRoutes: [],
-        splatRoutes: [
-          { parentSegments: ["add"], path: "/add/$" },
-        ],
+        splatRoutes: [{ parentSegments: ["add"], path: "/add/$" }],
         availableCommands: ["add <items...>"],
       };
 
@@ -316,9 +311,7 @@ describe("createParseRoute", () => {
       const routeTable: RouteTable = {
         staticRoutes: {},
         dynamicRoutes: [],
-        splatRoutes: [
-          { parentSegments: ["add"], path: "/add/$" },
-        ],
+        splatRoutes: [{ parentSegments: ["add"], path: "/add/$" }],
         availableCommands: ["add <items...>"],
       };
 

@@ -133,12 +133,12 @@ _filerouter_cli() {
         '1:command:->command' \\
         '*::arg:->args'
 
-    case "\$state" in
+    case "$state" in
         command)
             _describe -t commands 'filerouter-cli commands' commands
             ;;
         args)
-            case "\$words[1]" in
+            case "$words[1]" in
                 init)
                     _arguments \\
                         '1:project name:_directories' \\
@@ -157,7 +157,7 @@ _filerouter_cli() {
     esac
 }
 
-_filerouter_cli "\$@"
+_filerouter_cli "$@"
 `;
 }
 

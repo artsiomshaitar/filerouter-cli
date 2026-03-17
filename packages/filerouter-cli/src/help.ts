@@ -1,23 +1,9 @@
 import type { z } from "zod";
-import type { FileCommand } from "./types";
+import { routePathToCliCommand } from "./generator/scanner";
+import { extractRouteParams } from "./parseRoute";
+import type { FieldInfo, FileCommand } from "./types";
 
-/**
- * Information about a Zod schema field
- */
-interface FieldInfo {
-  name: string;
-  type: string;
-  description?: string;
-  isOptional: boolean;
-  defaultValue?: unknown;
-}
-
-/**
- * Extract field information from a Zod object schema
- */
-export function extractFieldsFromZodSchema(
-  schema: z.ZodTypeAny | undefined
-): FieldInfo[] {
+export function extractFieldsFromZodSchema(schema: z.ZodTypeAny | undefined): FieldInfo[] {
   if (!schema) return [];
 
   // Check if it's a ZodObject
@@ -35,48 +21,38 @@ export function extractFieldsFromZodSchema(
   return fields;
 }
 
-/**
- * Extract info from a single Zod field
- */
 function extractFieldInfo(name: string, schema: z.ZodTypeAny): FieldInfo {
   let currentSchema = schema;
   let isOptional = false;
-  let defaultValue: unknown = undefined;
+  let defaultValue: unknown;
   let description: string | undefined;
 
-  // Unwrap ZodDefault
   if ("_def" in currentSchema) {
     const def = currentSchema._def as Record<string, unknown>;
 
-    // Check for default
     if (def.typeName === "ZodDefault") {
-      // defaultValue is a function that returns the actual default
       const defaultFn = def.defaultValue as (() => unknown) | unknown;
       defaultValue = typeof defaultFn === "function" ? defaultFn() : defaultFn;
       currentSchema = def.innerType as z.ZodTypeAny;
     }
 
-    // Check for optional
     if (def.typeName === "ZodOptional") {
       isOptional = true;
       currentSchema = def.innerType as z.ZodTypeAny;
     }
 
-    // Get description
     if (typeof def.description === "string") {
       description = def.description;
     }
   }
 
-  // Check if optional (also check isOptional method)
   if (typeof schema.isOptional === "function" && schema.isOptional()) {
     isOptional = true;
   }
 
-  // Get type name
   const type = getZodTypeName(currentSchema);
 
-  // Try to get description from the current schema too
+  // Description may be on the inner type after unwrapping optional/default
   if (!description && "_def" in currentSchema) {
     const def = currentSchema._def as Record<string, unknown>;
     if (typeof def.description === "string") {
@@ -93,9 +69,6 @@ function extractFieldInfo(name: string, schema: z.ZodTypeAny): FieldInfo {
   };
 }
 
-/**
- * Get a human-readable type name from a Zod schema
- */
 function getZodTypeName(schema: z.ZodTypeAny): string {
   if (!("_def" in schema)) return "unknown";
 
@@ -111,9 +84,10 @@ function getZodTypeName(schema: z.ZodTypeAny): string {
       return "boolean";
     case "ZodArray":
       return "array";
-    case "ZodEnum":
+    case "ZodEnum": {
       const values = (def.values as string[]) || [];
       return values.join(" | ");
+    }
     case "ZodDefault":
       return getZodTypeName(def.innerType as z.ZodTypeAny);
     case "ZodOptional":
@@ -132,7 +106,7 @@ function getZodTypeName(schema: z.ZodTypeAny): string {
 function getParamDescription(
   paramName: string,
   validateParams?: z.ZodTypeAny,
-  paramsDescription?: Record<string, string>
+  paramsDescription?: Record<string, string>,
 ): string | undefined {
   // First, try validateParams schema description
   if (validateParams && "shape" in validateParams) {
@@ -147,82 +121,56 @@ function getParamDescription(
   }
 
   // Fall back to paramsDescription
-  if (paramsDescription && paramsDescription[paramName]) {
+  if (paramsDescription?.[paramName]) {
     return paramsDescription[paramName];
   }
 
   return undefined;
 }
 
-/**
- * Generate help text for a specific command
- */
 export function generateCommandHelp(
   command: FileCommand<any, any, any, any>,
   cliName: string,
   routePath: string,
-  aliases?: Record<string, string[]>
+  _aliases?: Record<string, string[]>,
 ): string {
   const lines: string[] = [];
   const config = command.config;
 
-  // Build usage string
-  const usageParts = [cliName];
-  const segments = routePath.split("/").filter(Boolean);
-  const paramNames: string[] = [];
-  let isSplat = false;
+  const cliCmd = routePathToCliCommand(routePath);
+  const headerCmd = cliCmd ? `${cliName} ${cliCmd}` : cliName;
+  const paramNames = extractRouteParams(routePath);
+  const isSplat = paramNames.includes("_splat");
 
-  for (const segment of segments) {
-    if (segment === "$") {
-      // Splat route - show as <items...>
-      usageParts.push("<items...>");
-      paramNames.push("_splat");
-      isSplat = true;
-    } else if (segment.startsWith("$")) {
-      const paramName = segment.slice(1);
-      usageParts.push(`<${paramName}>`);
-      paramNames.push(paramName);
-    } else if (!segment.startsWith("_")) {
-      usageParts.push(segment);
-    }
-  }
-
-  // Header
-  lines.push(`${usageParts.join(" ")} - ${config.description}`);
+  lines.push(`${headerCmd} - ${config.description}`);
   lines.push("");
 
-  // Usage - for splat, show items as optional
   if (isSplat) {
-    const usageWithOptional = usageParts.map((p) => 
-      p === "<items...>" ? "[items...]" : p
-    );
-    lines.push(`Usage: ${usageWithOptional.join(" ")} [options]`);
+    const usageCmd = headerCmd.replace("<items...>", "[items...]");
+    lines.push(`Usage: ${usageCmd} [options]`);
   } else {
-    lines.push(`Usage: ${usageParts.join(" ")} [options]`);
+    lines.push(`Usage: ${headerCmd} [options]`);
   }
   lines.push("");
 
-  // Arguments (from params)
   if (paramNames.length > 0) {
     lines.push("Arguments:");
     for (const paramName of paramNames) {
       const desc = getParamDescription(
         paramName,
         config.validateParams,
-        config.paramsDescription as Record<string, string> | undefined
+        config.paramsDescription as Record<string, string> | undefined,
       );
-      
-      // For splat, it's always optional (can be empty array)
+
       const isSplatParam = paramName === "_splat";
       const displayName = isSplatParam ? "items" : paramName;
       const required = isSplatParam ? "(optional, variadic)" : "(required)";
-      
+
       lines.push(`  ${displayName.padEnd(16)} ${desc || ""} ${required}`);
     }
     lines.push("");
   }
 
-  // Options (from args)
   const argsFields = extractFieldsFromZodSchema(config.validateArgs);
   const commandAliases = config.aliases || {};
 
@@ -241,23 +189,18 @@ export function generateCommandHelp(
       desc += " (optional)";
     }
 
-    // Format with type hint for non-boolean
     const typeHint = field.type === "boolean" ? "" : ` <${field.type}>`;
     lines.push(`  ${(flagName + typeHint).padEnd(24)} ${desc}`);
   }
 
-  // Always add --help
   lines.push(`  ${"--help, -h".padEnd(24)} Show this help message`);
 
   return lines.join("\n");
 }
 
-/**
- * Generate global help text showing all available commands
- */
 export function generateGlobalHelp(
   commandsTree: Record<string, FileCommand<any, any, any, any>>,
-  cliName: string
+  cliName: string,
 ): string {
   const lines: string[] = [];
 
@@ -265,47 +208,29 @@ export function generateGlobalHelp(
   lines.push("");
   lines.push("Commands:");
 
-  // Collect commands with their CLI representation
   const commands: { cli: string; description: string; path: string }[] = [];
 
   for (const [path, command] of Object.entries(commandsTree)) {
     // Skip layouts (paths ending in pathless segments only)
     const segments = path.split("/").filter(Boolean);
-    const isLayout =
-      segments.length > 0 &&
-      segments[segments.length - 1]?.startsWith("_");
+    const isLayout = segments.length > 0 && segments[segments.length - 1]?.startsWith("_");
 
     if (isLayout) continue;
 
     // Skip root command in the list (it's the default)
     if (path === "/") continue;
 
-    // Build CLI command string
-    const cliParts: string[] = [];
-    for (const segment of segments) {
-      if (segment === "$") {
-        // Splat route - show as <items...>
-        cliParts.push("<items...>");
-      } else if (segment.startsWith("$")) {
-        cliParts.push(`<${segment.slice(1)}>`);
-      } else if (!segment.startsWith("_")) {
-        cliParts.push(segment);
-      }
-    }
-
-    if (cliParts.length > 0) {
+    const cli = routePathToCliCommand(path);
+    if (cli) {
       commands.push({
-        cli: cliParts.join(" "),
+        cli,
         description: command.config.description,
         path,
       });
     }
   }
 
-  // Sort commands alphabetically
   commands.sort((a, b) => a.cli.localeCompare(b.cli));
-
-  // Find max command length for padding
   const maxLen = Math.max(...commands.map((c) => c.cli.length), 10);
 
   for (const cmd of commands) {
@@ -318,9 +243,6 @@ export function generateGlobalHelp(
   return lines.join("\n");
 }
 
-/**
- * Check if help flag is present in args
- */
 export function hasHelpFlag(args: Record<string, unknown>): boolean {
   return args.help === true || args.h === true;
 }

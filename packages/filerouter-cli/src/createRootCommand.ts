@@ -32,31 +32,33 @@ export interface RootCommand<TContext extends object = object> {
    * Add file-based children to this command
    * @internal Used by generated code
    */
-  _addFileChildren: <TChildren>(children: TChildren) => RootCommand<TContext> & { children: TChildren };
+  _addFileChildren: <TChildren>(
+    children: TChildren,
+  ) => RootCommand<TContext> & { children: TChildren };
 }
 
 /**
  * Creates a root command that defines the CLI's context type.
- * 
+ *
  * The root command is required and should be placed in `commands/root.ts`.
  * It defines the shared context type that will be available to all command handlers.
- * 
+ *
  * @example
  * ```ts
  * // commands/root.ts
  * import { createRootCommand } from "filerouter-cli";
- * 
+ *
  * interface AppContext {
  *   db: Database;
  *   config: Config;
  * }
- * 
+ *
  * export const RootCommand = createRootCommand<AppContext>()({
  *   description: "My awesome CLI tool",
  *   version: "1.0.0",
  * });
  * ```
- * 
+ *
  * @returns A factory function that creates the root command with the specified context type
  */
 export function createRootCommand<TContext extends object = object>() {

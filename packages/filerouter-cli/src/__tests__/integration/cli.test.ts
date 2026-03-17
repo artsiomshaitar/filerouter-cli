@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtemp, rm, mkdir, writeFile, readFile } from "fs/promises";
-import { join } from "path";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "fs/promises";
 import { tmpdir } from "os";
-import { scanCommands } from "../../generator/scanner";
+import { join } from "path";
 import { generateCommandsTree } from "../../generator/codegen";
+import { scanCommands } from "../../generator/scanner";
 
 /**
  * Integration tests for the full CLI flow:
@@ -24,12 +24,12 @@ describe("CLI Integration", () => {
     commandsDir = join(tempDir, "commands");
     genFile = join(tempDir, "commandsTree.gen.ts");
     await mkdir(commandsDir, { recursive: true });
-    
+
     // Create required __root.ts file (following TanStack Router's naming convention)
     await writeFile(
       join(commandsDir, "__root.ts"),
       `import { createRootCommand } from "filerouter-cli";
-export const RootCommand = createRootCommand()({ description: "Test CLI" });`
+export const RootCommand = createRootCommand()({ description: "Test CLI" });`,
     );
   });
 
@@ -46,14 +46,14 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
   }
 
   // Helper to generate and import the commands tree
-  async function generateAndImport() {
+  async function _generateAndImport() {
     const { commands } = await scanCommands(commandsDir);
     const code = generateCommandsTree(commands, {
       commandsDirectory: commandsDir,
       generatedFile: genFile,
     });
     await writeFile(genFile, code);
-    
+
     // Import dynamically - need to add random query to bust cache
     const cacheBuster = `?t=${Date.now()}-${Math.random()}`;
     return await import(`${genFile}${cacheBuster}`);
@@ -71,7 +71,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "authenticated",
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -92,7 +92,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "authenticated",
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -103,7 +103,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
 
       expect(code).toContain('"/auth": AuthCommand');
       expect(code).toContain("export const routeTable: RouteTable");
-      expect(code).toContain('registerCommands(commandsTree)');
+      expect(code).toContain("registerCommands(commandsTree)");
     });
   });
 
@@ -119,7 +119,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async ({ params }) => \`project: \${params.projectId}\`,
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -141,7 +141,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async ({ params }) => params.userId,
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -152,7 +152,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
 
       expect(code).toContain("dynamicRoutes");
       expect(code).toContain('segments: ["users", "$userId"]');
-      expect(code).toContain('paramIndices: { userId: 1 }');
+      expect(code).toContain("paramIndices: { userId: 1 }");
     });
   });
 
@@ -168,7 +168,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async ({ params }) => params._splat.join(", "),
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -190,7 +190,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "add",
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -227,7 +227,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             },
           },
         };
-      `
+      `,
       );
 
       await createCommand(
@@ -240,7 +240,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "secret",
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -267,7 +267,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "protected",
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -291,7 +291,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/",
           config: { description: "Root", handler: async () => "root" },
         };
-      `
+      `,
       );
 
       // Static
@@ -302,7 +302,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/auth",
           config: { description: "Auth", handler: async () => "auth" },
         };
-      `
+      `,
       );
 
       // Dynamic
@@ -313,7 +313,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/users/$userId",
           config: { description: "User", handler: async ({ params }) => params.userId },
         };
-      `
+      `,
       );
 
       // Splat
@@ -324,7 +324,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/install/$",
           config: { description: "Install", handler: async ({ params }) => params._splat },
         };
-      `
+      `,
       );
 
       // Layout
@@ -335,7 +335,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/_admin",
           config: { description: "Admin layout", handler: async ({ outlet }) => outlet },
         };
-      `
+      `,
       );
 
       // Layout child
@@ -346,7 +346,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/_admin/dashboard",
           config: { description: "Dashboard", handler: async () => "dashboard" },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -380,7 +380,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/list",
           config: { description: "List", handler: async () => "list" },
         };
-      `
+      `,
       );
 
       // Dynamic route
@@ -391,7 +391,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/list/$id",
           config: { description: "List item", handler: async () => "item" },
         };
-      `
+      `,
       );
 
       // Splat route
@@ -402,7 +402,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
           __path: "/catch/$",
           config: { description: "Catch all", handler: async () => "catch" },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -428,12 +428,9 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
     it("ignores test files", async () => {
       await createCommand(
         "auth.ts",
-        `export const Command = { __path: "/auth", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/auth", config: { description: "", handler: async () => {} } };`,
       );
-      await createCommand(
-        "auth.test.ts",
-        `// This should be ignored`
-      );
+      await createCommand("auth.test.ts", `// This should be ignored`);
 
       const { commands } = await scanCommands(commandsDir);
 
@@ -444,12 +441,9 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
     it("ignores spec files", async () => {
       await createCommand(
         "list.ts",
-        `export const Command = { __path: "/list", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/list", config: { description: "", handler: async () => {} } };`,
       );
-      await createCommand(
-        "list.spec.ts",
-        `// This should be ignored`
-      );
+      await createCommand("list.spec.ts", `// This should be ignored`);
 
       const { commands } = await scanCommands(commandsDir);
 
@@ -459,12 +453,9 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
     it("ignores .d.ts files", async () => {
       await createCommand(
         "types.ts",
-        `export const Command = { __path: "/types", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/types", config: { description: "", handler: async () => {} } };`,
       );
-      await createCommand(
-        "types.d.ts",
-        `// Type declarations`
-      );
+      await createCommand("types.d.ts", `// Type declarations`);
 
       const { commands } = await scanCommands(commandsDir);
 
@@ -476,11 +467,11 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
     it("supports all TypeScript extensions", async () => {
       await createCommand(
         "cmd1.ts",
-        `export const Command = { __path: "/cmd1", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/cmd1", config: { description: "", handler: async () => {} } };`,
       );
       await createCommand(
         "cmd2.tsx",
-        `export const Command = { __path: "/cmd2", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/cmd2", config: { description: "", handler: async () => {} } };`,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -494,11 +485,11 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
     it("supports JavaScript extensions", async () => {
       await createCommand(
         "cmd1.js",
-        `export const Command = { __path: "/cmd1", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/cmd1", config: { description: "", handler: async () => {} } };`,
       );
       await createCommand(
         "cmd2.jsx",
-        `export const Command = { __path: "/cmd2", config: { description: "", handler: async () => {} } };`
+        `export const Command = { __path: "/cmd2", config: { description: "", handler: async () => {} } };`,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -519,7 +510,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "auth",
           },
         };
-      `
+      `,
       );
 
       await createCommand(
@@ -532,7 +523,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
             handler: async () => "list",
           },
         };
-      `
+      `,
       );
 
       const { commands } = await scanCommands(commandsDir);
@@ -542,7 +533,7 @@ export const RootCommand = createRootCommand()({ description: "Test CLI" });`
       });
 
       // CLI name is determined at runtime, not in generated code
-      expect(code).toContain('registerCommands(commandsTree)');
+      expect(code).toContain("registerCommands(commandsTree)");
       // Available commands are in the routeTable
       expect(code).toContain("availableCommands:");
       expect(code).toContain('"auth"');

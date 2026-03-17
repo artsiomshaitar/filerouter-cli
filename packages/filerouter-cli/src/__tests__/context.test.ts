@@ -1,9 +1,9 @@
-import { describe, it, expect, mock, spyOn } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { executeCommand, findLayoutChain, executeWithLayouts } from "../context";
+import { executeCommand, executeWithLayouts, findLayoutChain } from "../context";
 import { createFileCommand } from "../createFileCommand";
-import type { FileCommand, ParsedRoute, Middleware } from "../types";
 import { ParseError } from "../errors";
+import type { FileCommand, Middleware, ParsedRoute } from "../types";
 
 // Helper to create a basic route
 function createRoute(overrides: Partial<ParsedRoute> = {}): ParsedRoute {
@@ -39,11 +39,7 @@ describe("executeCommand", () => {
         },
       });
 
-      await executeCommand(
-        command,
-        createRoute({ args: { verbose: true, name: "test" } }),
-        {}
-      );
+      await executeCommand(command, createRoute({ args: { verbose: true, name: "test" } }), {});
 
       expect(receivedArgs).toEqual({ verbose: true, name: "test" });
     });
@@ -59,11 +55,7 @@ describe("executeCommand", () => {
         },
       });
 
-      await executeCommand(
-        command,
-        createRoute({ params: { projectId: "proj_123" } }),
-        {}
-      );
+      await executeCommand(command, createRoute({ params: { projectId: "proj_123" } }), {});
 
       expect(receivedParams).toEqual({ projectId: "proj_123" });
     });
@@ -79,11 +71,7 @@ describe("executeCommand", () => {
         },
       });
 
-      await executeCommand(
-        command,
-        createRoute({ rawArgs: ["test", "--verbose", "value"] }),
-        {}
-      );
+      await executeCommand(command, createRoute({ rawArgs: ["test", "--verbose", "value"] }), {});
 
       expect(receivedRawArgs).toEqual(["test", "--verbose", "value"]);
     });
@@ -119,7 +107,6 @@ describe("executeCommand", () => {
       await executeCommand(command, createRoute(), {});
       expect(hasShell).toBe(true);
     });
-
   });
 
   describe("validation", () => {
@@ -135,11 +122,7 @@ describe("executeCommand", () => {
         },
       });
 
-      const result = await executeCommand(
-        command,
-        createRoute({ args: { name: "test" } }),
-        {}
-      );
+      const result = await executeCommand(command, createRoute({ args: { name: "test" } }), {});
 
       expect(result).toBe("test: 1");
     });
@@ -153,9 +136,9 @@ describe("executeCommand", () => {
         handler: async () => "done",
       });
 
-      await expect(
-        executeCommand(command, createRoute({ args: {} }), {})
-      ).rejects.toThrow(ParseError);
+      await expect(executeCommand(command, createRoute({ args: {} }), {})).rejects.toThrow(
+        ParseError,
+      );
     });
 
     it("validates params with schema", async () => {
@@ -172,7 +155,7 @@ describe("executeCommand", () => {
       const result = await executeCommand(
         command,
         createRoute({ params: { projectId: "proj_123" } }),
-        {}
+        {},
       );
 
       expect(result).toBe("proj_123");
@@ -188,11 +171,7 @@ describe("executeCommand", () => {
       });
 
       await expect(
-        executeCommand(
-          command,
-          createRoute({ params: { projectId: "abc" } }),
-          {}
-        )
+        executeCommand(command, createRoute({ params: { projectId: "abc" } }), {}),
       ).rejects.toThrow(ParseError);
     });
 
@@ -208,11 +187,7 @@ describe("executeCommand", () => {
         },
       });
 
-      const result = await executeCommand(
-        command,
-        createRoute({ args: { v: true } }),
-        {}
-      );
+      const result = await executeCommand(command, createRoute({ args: { v: true } }), {});
 
       expect(result).toBe("verbose");
     });
@@ -222,7 +197,7 @@ describe("executeCommand", () => {
     it("executes middleware before handler", async () => {
       const order: string[] = [];
 
-      const middleware: Middleware = async (ctx, next) => {
+      const middleware: Middleware = async (_ctx, next) => {
         order.push("middleware");
         await next();
       };
@@ -243,13 +218,13 @@ describe("executeCommand", () => {
     it("executes multiple middleware in order", async () => {
       const order: string[] = [];
 
-      const mw1: Middleware = async (ctx, next) => {
+      const mw1: Middleware = async (_ctx, next) => {
         order.push("mw1-before");
         await next();
         order.push("mw1-after");
       };
 
-      const mw2: Middleware = async (ctx, next) => {
+      const mw2: Middleware = async (_ctx, next) => {
         order.push("mw2-before");
         await next();
         order.push("mw2-after");
@@ -265,13 +240,7 @@ describe("executeCommand", () => {
       });
 
       await executeCommand(command, createRoute(), {});
-      expect(order).toEqual([
-        "mw1-before",
-        "mw2-before",
-        "handler",
-        "mw2-after",
-        "mw1-after",
-      ]);
+      expect(order).toEqual(["mw1-before", "mw2-before", "handler", "mw2-after", "mw1-after"]);
     });
   });
 
@@ -319,11 +288,7 @@ describe("executeCommand", () => {
         },
       });
 
-      await executeCommand(
-        command,
-        createRoute({ params: { _splat: ["foo", "bar", "baz"] } }),
-        {}
-      );
+      await executeCommand(command, createRoute({ params: { _splat: ["foo", "bar", "baz"] } }), {});
 
       expect(receivedSplat).toEqual(["foo", "bar", "baz"]);
     });
@@ -342,7 +307,7 @@ describe("executeCommand", () => {
       const result = await executeCommand(
         command,
         createRoute({ params: { _splat: ["typescript", "react"] } }),
-        {}
+        {},
       );
 
       expect(result).toBe("typescript, react");
@@ -467,7 +432,7 @@ describe("executeWithLayouts", () => {
       command,
       [layout],
       createRoute({ path: "/_auth/protected" }),
-      {}
+      {},
     );
 
     expect(result).toBe("[auth]secret[/auth]");
@@ -499,7 +464,7 @@ describe("executeWithLayouts", () => {
       command,
       [outerLayout, innerLayout],
       createRoute({ path: "/_auth/_admin/dashboard" }),
-      {}
+      {},
     );
 
     expect(result).toBe("[outer][inner]dashboard[/inner][/outer]");
@@ -528,7 +493,7 @@ describe("executeWithLayouts", () => {
       command,
       [layout],
       createRoute({ path: "/_auth/slow" }),
-      {}
+      {},
     );
 
     expect(result).toBe("wrapped: slow content");
@@ -555,12 +520,7 @@ describe("executeWithLayouts", () => {
     });
 
     const userContext = { user: { id: "123" } };
-    await executeWithLayouts(
-      command,
-      [layout],
-      createRoute({ path: "/_auth/test" }),
-      userContext
-    );
+    await executeWithLayouts(command, [layout], createRoute({ path: "/_auth/test" }), userContext);
 
     expect(layoutContext).toEqual(userContext);
     expect(commandContext).toEqual(userContext);
