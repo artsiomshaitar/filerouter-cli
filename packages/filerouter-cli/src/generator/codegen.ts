@@ -91,8 +91,8 @@ export function generateCommandsTree(commands: ScannedCommand[], config: Generat
   lines.push("");
 
   // Imports from filerouter-cli
-  lines.push("import { createParseRoute, registerCommands } from 'filerouter-cli';");
-  lines.push("import type { RouteTable, EmptyParams } from 'filerouter-cli';");
+  lines.push('import type { EmptyParams, RouteTable } from "filerouter-cli";');
+  lines.push('import { createParseRoute, registerCommands } from "filerouter-cli";');
   lines.push("");
 
   // Import root command first (defines context type)
@@ -281,7 +281,7 @@ function generateFileCommandsByPath(commands: ScannedCommand[]): string {
   lines.push("");
   lines.push("// FileCommandsByPath for type-safe context inference");
   lines.push("// This enables automatic context type inheritance from root command");
-  lines.push("declare module 'filerouter-cli' {");
+  lines.push('declare module "filerouter-cli" {');
   lines.push("  interface FileCommandsByPath {");
 
   for (const cmd of commands) {
@@ -363,7 +363,7 @@ function generateRegisterDeclaration(commands: ScannedCommand[]): string {
   lines.push("");
 
   // Generate the declaration merging
-  lines.push("declare module 'filerouter-cli' {");
+  lines.push('declare module "filerouter-cli" {');
   lines.push("  interface Register {");
   lines.push("    commandPath: RegisteredCommandPath;");
   lines.push("    commandArgs: CommandArgsMap;");

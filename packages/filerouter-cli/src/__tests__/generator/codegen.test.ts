@@ -52,8 +52,8 @@ describe("generateCommandsTree", () => {
     it("imports from filerouter-cli", () => {
       const code = generateCommandsTree([], defaultConfig);
 
-      expect(code).toContain("import { createParseRoute, registerCommands } from 'filerouter-cli'");
-      expect(code).toContain("import type { RouteTable, EmptyParams } from 'filerouter-cli'");
+      expect(code).toContain('import type { EmptyParams, RouteTable } from "filerouter-cli"');
+      expect(code).toContain('import { createParseRoute, registerCommands } from "filerouter-cli"');
     });
 
     it("imports commands with correct variable names", () => {
