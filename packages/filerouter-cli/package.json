@@ -32,7 +32,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "ink": "^6.0.0",
+    "ink": "^7.0.1",
     "react": "^19.0.0"
   },
   "peerDependencies": {
